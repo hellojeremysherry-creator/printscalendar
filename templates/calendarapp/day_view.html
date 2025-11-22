@@ -1,0 +1,31 @@
+{% extends "calendarapp/base.html" %}
+
+{% block content %}
+<h2>Events on {{ date }}</h2>
+
+<a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary mb-3">
+    ← Back to month
+</a>
+
+{% if events %}
+    <div class="list-group">
+        {% for event in events %}
+            <div class="list-group-item">
+                <h5 class="mb-1">{{ event.title }}</h5>
+                <small class="text-muted">
+                    {{ event.auction_house }} {% if event.location %}– {{ event.location }}{% endif %}
+                </small>
+                <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
+                <span class="badge bg-info text-dark">{{ event.get_status_display }}</span>
+                <div class="mt-2">
+                    <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
+                    <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <p>No sales on this day yet.</p>
+{% endif %}
+
+{% endblock %}

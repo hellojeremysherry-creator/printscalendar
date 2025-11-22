@@ -1,0 +1,51 @@
+{% extends "calendarapp/base.html" %}
+{% load static %}
+
+{% block content %}
+<h2 class="mb-3">{{ month_name }} {{ year }}</h2>
+
+<div class="d-flex justify-content-between mb-3">
+    <a class="btn btn-sm btn-outline-secondary"
+       href="?year={{ prev_year }}&month={{ prev_month }}">← Previous</a>
+    <a class="btn btn-sm btn-outline-secondary"
+       href="?year={{ next_year }}&month={{ next_month }}">Next →</a>
+</div>
+
+<table class="table table-bordered bg-white">
+    <thead class="table-light">
+    <tr>
+        <th>Mon</th>
+        <th>Tue</th>
+        <th>Wed</th>
+        <th>Thu</th>
+        <th>Fri</th>
+        <th>Sat</th>
+        <th>Sun</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for week in weeks %}
+        <tr>
+            {% for day, events in week %}
+                <td class="{% if day.month != month %}text-muted bg-light{% endif %}"
+                    style="vertical-align: top; font-size: 0.9rem;">
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ day.day }}</strong>
+                        {% if events %}
+                            <span class="badge bg-primary">{{ events|length }}</span>
+                        {% endif %}
+                    </div>
+                    {% for event in events %}
+                        <div class="mt-1">
+                            <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}">
+                                {{ event.title }}
+                            </a>
+                        </div>
+                    {% endfor %}
+                </td>
+            {% endfor %}
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

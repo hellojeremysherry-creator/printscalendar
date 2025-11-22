@@ -1,0 +1,12 @@
+from django.urls import path
+from . import views
+
+app_name = 'calendarapp'
+
+urlpatterns = [
+    path('', views.MonthView.as_view(), name='month_view'),
+    path('day/<int:year>/<int:month>/<int:day>/', views.DayView.as_view(), name='day_view'),
+    path('event/add/', views.SaleEventCreateView.as_view(), name='event_add'),
+    path('event/<int:pk>/edit/', views.SaleEventUpdateView.as_view(), name='event_edit'),
+    path('event/<int:pk>/delete/', views.SaleEventDeleteView.as_view(), name='event_delete'),
+]
