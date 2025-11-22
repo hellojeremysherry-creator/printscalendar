@@ -706,4 +706,4 @@ printscalendar
 │               </tbody>
 │           </table>
 │           {% endblock %}
-└
+└─

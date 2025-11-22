@@ -7,6 +7,7 @@ from .models import SaleEvent
 from .forms import SaleEventForm
 import re
 import requests
+from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 from django.http import JsonResponse
 
@@ -17,9 +18,31 @@ def scrape_auction(request):
         return JsonResponse({"error": "Missing URL"}, status=400)
 
     try:
-        headers = {"User-Agent": "Mozilla/5.0"}
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
         resp = requests.get(url, headers=headers, timeout=10)
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
+        except HTTPError as e:
+            # Specific handling for 403
+            if resp.status_code == 403:
+                return JsonResponse({
+                    "error": (
+                        "The auction site returned 403 Forbidden. "
+                        "They may be blocking automated requests from our server."
+                    )
+                }, status=502)
+            # Generic HTTP error
+            return JsonResponse({
+                "error": f"HTTP error from auction site: {resp.status_code}"
+            }, status=502)
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
