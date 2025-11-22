@@ -126,19 +126,21 @@ class MonthView(generic.TemplateView):
             year = today.year
             month = today.month
 
-        # Calendar matrix: list of weeks, each week is list of (day, events)
-        cal = calendar.Calendar(firstweekday=0)  # Monday = 0 if you want
+        cal = calendar.Calendar(firstweekday=0)
         month_days = cal.itermonthdates(year, month)
 
         weeks = []
         week = []
         for d in month_days:
-            day_events = SaleEvent.objects.filter(
-                start_date__lte=d,
-                end_date__gte=d
-            ) | SaleEvent.objects.filter(
-                start_date=d,
-                end_date__isnull=True
+            day_events = (
+                SaleEvent.objects.filter(
+                    start_date__lte=d,
+                    end_date__gte=d
+                ) |
+                SaleEvent.objects.filter(
+                    start_date=d,
+                    end_date__isnull=True
+                )
             )
 
             week.append((d, day_events.distinct()))
@@ -171,7 +173,15 @@ class MonthView(generic.TemplateView):
         context['next_year'] = next_year
         context['next_month'] = next_month
 
+        # NEW: extra context for UI niceties
+        context['today'] = today
+        context['upcoming_events'] = (
+            SaleEvent.objects.filter(start_date__gte=today)
+            .order_by('start_date')[:10]
+        )
+
         return context
+
 
 
 class DayView(generic.TemplateView):

@@ -2,57 +2,142 @@
 {% load static %}
 
 {% block content %}
-<h2 class="mb-3">{{ month_name }} {{ year }}</h2>
-
-<div class="d-flex justify-content-between mb-3">
-    <a class="btn btn-sm btn-outline-secondary"
-       href="?year={{ prev_year }}&month={{ prev_month }}">← Previous</a>
-    <a class="btn btn-sm btn-outline-secondary"
-       href="?year={{ next_year }}&month={{ next_month }}">Next →</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">{{ month_name }} {{ year }}</h2>
+        <small class="text-muted">Click a day to see full details</small>
+    </div>
+    <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-secondary"
+           href="?year={{ prev_year }}&month={{ prev_month }}">← Previous</a>
+        <a class="btn btn-sm btn-outline-secondary"
+           href="?year={{ next_year }}&month={{ next_month }}">Next →</a>
+    </div>
 </div>
 
-<table class="table table-bordered bg-white">
-    <thead class="table-light">
-    <tr>
-        <th>Mon</th>
-        <th>Tue</th>
-        <th>Wed</th>
-        <th>Thu</th>
-        <th>Fri</th>
-        <th>Sat</th>
-        <th>Sun</th>
-    </tr>
-    </thead>
-    <tbody>
-    {% for week in weeks %}
-        <tr>
-            {% for day, events in week %}
-                <td class="{% if day.month != month %}text-muted bg-light{% endif %}"
-                    style="vertical-align: top; font-size: 0.9rem;">
-                    <div class="d-flex justify-content-between">
-                        <strong>{{ day.day }}</strong>
-                        {% if events %}
-                            <span class="badge bg-primary">{{ events|length }}</span>
-                        {% endif %}
-                    </div>
-                    {% for event in events %}
-    <div class="mt-1 d-flex justify-content-between align-items-center">
-        <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}">
-            {{ event.title }}
-        </a>
-        <span>
-            <a href="{% url 'calendarapp:event_edit' event.pk %}"
-               class="btn btn-sm btn-outline-primary py-0 px-1">✏️</a>
-            <a href="{% url 'calendarapp:event_delete' event.pk %}"
-               class="btn btn-sm btn-outline-danger py-0 px-1">🗑️</a>
-        </span>
-    </div>
-{% endfor %}
+<div class="row">
+    <!-- Calendar -->
+    <div class="col-lg-8 mb-4">
+        <table class="table table-bordered bg-white align-middle">
+            <thead class="table-light text-center">
+            <tr>
+                <th>Mon</th>
+                <th>Tue</th>
+                <th>Wed</th>
+                <th>Thu</th>
+                <th>Fri</th>
+                <th>Sat</th>
+                <th>Sun</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for week in weeks %}
+                <tr>
+                    {% for day, events in week %}
+                        {% comment %}
+                        Decide cell classes:
+                        - outside current month → faded
+                        - today → highlighted
+                        {% endcomment %}
+                        {% with classes="" %}
+                            {% if day.month != month %}
+                                {% with classes=classes|add:" day-cell-outside" %}
+                                {% endwith %}
+                            {% endif %}
+                            {% if day == today %}
+                                {% with classes=classes|add:" day-cell-today" %}
+                                {% endwith %}
+                            {% endif %}
+                            <td class="p-1 {{ classes }}" style="font-size: 0.85rem;">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}"
+                                       class="fw-semibold text-decoration-none {% if day.month != month %}text-muted{% endif %}">
+                                        {{ day.day }}
+                                    </a>
+                                    {% if events %}
+                                        <span class="badge bg-primary rounded-pill">
+                                            {{ events|length }}
+                                        </span>
+                                    {% endif %}
+                                </div>
 
-                </td>
+                                {% for event in events %}
+                                    {% with event.status as st %}
+                                        <div class="event-chip mt-1
+                                            {% if st == 'researching' %}event-chip-researching{% endif %}
+                                            {% if st == 'preparing' %}event-chip-preparing{% endif %}
+                                            {% if st == 'bidding' %}event-chip-bidding{% endif %}
+                                            {% if st == 'passed' %}event-chip-passed{% endif %}
+                                        ">
+                                            <span class="status-dot
+                                                {% if st == 'researching' %}status-researching{% endif %}
+                                                {% if st == 'preparing' %}status-preparing{% endif %}
+                                                {% if st == 'bidding' %}status-bidding{% endif %}
+                                                {% if st == 'passed' %}status-passed{% endif %}
+                                            "></span>
+                                            {{ event.title|truncatechars:26 }}
+                                        </div>
+                                    {% endwith %}
+                                {% empty %}
+                                    <div class="text-muted" style="font-size: 0.7rem;">
+                                        &nbsp;
+                                    </div>
+                                {% endfor %}
+                            </td>
+                        {% endwith %}
+                    {% endfor %}
+                </tr>
             {% endfor %}
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+            </tbody>
+        </table>
+
+        <!-- Legend -->
+        <div class="d-flex flex-wrap gap-3 small text-muted">
+            <div><span class="status-dot status-researching"></span>Researching</div>
+            <div><span class="status-dot status-preparing"></span>Preparing</div>
+            <div><span class="status-dot status-bidding"></span>Bidding</div>
+            <div><span class="status-dot status-passed"></span>Passed</div>
+            <div class="ms-auto">
+                <span class="border border-primary rounded px-2 py-1 small">Today highlighted in blue</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar: upcoming events -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="sidebar-heading mb-2">Upcoming sales</div>
+                {% if upcoming_events %}
+                    <div class="list-group list-group-flush">
+                        {% for event in upcoming_events %}
+                            <a href="{% url 'calendarapp:day_view' event.start_date.year event.start_date.month event.start_date.day %}"
+                               class="list-group-item list-group-item-action px-0 border-0">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <div class="fw-semibold">{{ event.title|truncatechars:40 }}</div>
+                                        <div class="small text-muted">
+                                            {{ event.auction_house }}
+                                            {% if event.location %} · {{ event.location }}{% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="small fw-semibold">
+                                            {{ event.start_date|date:"M j" }}
+                                        </div>
+                                        <span class="badge rounded-pill bg-light text-muted">
+                                            {{ event.get_status_display }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-muted mb-0 small">No upcoming sales yet. Add one to get started!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

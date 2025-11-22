@@ -1,31 +1,56 @@
 {% extends "calendarapp/base.html" %}
 
 {% block content %}
-<h2>Events on {{ date }}</h2>
-
-<a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary mb-3">
-    ← Back to month
-</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h2 class="mb-0">Events on {{ date|date:"F j, Y" }}</h2>
+        <small class="text-muted">All sales happening this day</small>
+    </div>
+    <a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary">
+        ← Back to month
+    </a>
+</div>
 
 {% if events %}
     <div class="list-group">
         {% for event in events %}
             <div class="list-group-item">
-                <h5 class="mb-1">{{ event.title }}</h5>
-                <small class="text-muted">
-                    {{ event.auction_house }} {% if event.location %}– {{ event.location }}{% endif %}
-                </small>
-                <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
-                <span class="badge bg-info text-dark">{{ event.get_status_display }}</span>
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="mb-1">{{ event.title }}</h5>
+                        <small class="text-muted">
+                            {{ event.auction_house }}
+                            {% if event.location %} · {{ event.location }}{% endif %}
+                        </small>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-info text-dark mb-1">
+                            {{ event.get_status_display }}
+                        </span>
+                        <div class="small text-muted">
+                            {% if event.end_date and event.end_date != event.start_date %}
+                                {{ event.start_date|date:"M j" }} – {{ event.end_date|date:"M j" }}
+                            {% else %}
+                                {{ event.start_date|date:"M j" }}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% if event.notes %}
+                    <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
+                {% endif %}
                 <div class="mt-2">
-                    <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
-                    <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                    <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">
+                        Edit
+                    </a>
+                    <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">
+                        Delete
+                    </a>
                 </div>
             </div>
         {% endfor %}
     </div>
 {% else %}
-    <p>No sales on this day yet.</p>
+    <p class="text-muted">No sales on this day yet.</p>
 {% endif %}
-
 {% endblock %}
