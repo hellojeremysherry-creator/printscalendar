@@ -4,6 +4,34 @@ from django.urls import reverse_lazy
 from django.views import generic
 from django.utils import timezone
 from .models import SaleEvent
+from .forms import SaleEventForm
+import requests
+from bs4 import BeautifulSoup
+from django.http import JsonResponse
+
+def scrape_auction(request):
+    url = request.GET.get("url")
+    if not url:
+        return JsonResponse({"error": "Missing URL"}, status=400)
+
+    try:
+        headers = { "User-Agent": "Mozilla/5.0" }
+        html = requests.get(url, headers=headers).text
+        soup = BeautifulSoup(html, "html.parser")
+
+        # These selectors may need tweaking depending on the page
+        title = soup.select_one(".auction-title").get_text(strip=True)
+        date = soup.select_one(".auction-date").get_text(strip=True)
+        house = soup.select_one(".auction-house").get_text(strip=True)
+
+        return JsonResponse({
+            "title": title,
+            "auction_house": house,
+            "start_date": date,   # you may need to date-parse
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 class MonthView(generic.TemplateView):
@@ -98,18 +126,15 @@ class DayView(generic.TemplateView):
 
 class SaleEventCreateView(generic.CreateView):
     model = SaleEvent
-    fields = ['title', 'auction_house', 'location',
-              'start_date', 'end_date', 'status', 'notes']
-    template_name = 'calendarapp/event_form.html'
-    success_url = reverse_lazy('calendarapp:month_view')
-
+    form_class = SaleEventForm
+    template_name = "calendarapp/event_form.html"
+    success_url = reverse_lazy("calendarapp:month_view")
 
 class SaleEventUpdateView(generic.UpdateView):
     model = SaleEvent
-    fields = ['title', 'auction_house', 'location',
-              'start_date', 'end_date', 'status', 'notes']
-    template_name = 'calendarapp/event_form.html'
-    success_url = reverse_lazy('calendarapp:month_view')
+    form_class = SaleEventForm
+    template_name = "calendarapp/event_form.html"
+    success_url = reverse_lazy("calendarapp:month_view")
 
 
 class SaleEventDeleteView(generic.DeleteView):

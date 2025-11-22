@@ -226,12 +226,13 @@ printscalendar
 │       USE_LIVE = True  # Set to False to use local Django dev server
 │   
 │       if USE_LIVE:
-│           app_url = "https://printscalendar.xyz/event/add/"
+│           # Root URL shows the month view (because of your project urls.py)
+│           app_url = "https://printscalendar.xyz/"
 │       else:
-│           app_url = "http://127.0.0.1:8000/event/add/"  # requires: python manage.py runserver
+│           app_url = "http://127.0.0.1:8000/"  # requires: python manage.py runserver
 │   
 │       window = webview.create_window(
-│           "Prints Calendar — Add Sale",
+│           "Prints Calendar",
 │           app_url,
 │           width=900,
 │           height=700,
@@ -558,12 +559,19 @@ printscalendar
 │                                   {% endif %}
 │                               </div>
 │                               {% for event in events %}
-│                                   <div class="mt-1">
-│                                       <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}">
-│                                           {{ event.title }}
-│                                       </a>
-│                                   </div>
-│                               {% endfor %}
+│               <div class="mt-1 d-flex justify-content-between align-items-center">
+│                   <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}">
+│                       {{ event.title }}
+│                   </a>
+│                   <span>
+│                       <a href="{% url 'calendarapp:event_edit' event.pk %}"
+│                          class="btn btn-sm btn-outline-primary py-0 px-1">✏️</a>
+│                       <a href="{% url 'calendarapp:event_delete' event.pk %}"
+│                          class="btn btn-sm btn-outline-danger py-0 px-1">🗑️</a>
+│                   </span>
+│               </div>
+│           {% endfor %}
+│           
 │                           </td>
 │                       {% endfor %}
 │                   </tr>

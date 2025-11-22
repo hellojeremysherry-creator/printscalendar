@@ -9,4 +9,26 @@
     <button type="submit" class="btn btn-primary">Save</button>
     <a href="{% url 'calendarapp:month_view' %}" class="btn btn-secondary">Cancel</a>
 </form>
+
+<button type="button" class="btn btn-secondary" id="fetch-btn">
+    Fetch Info from URL
+</button>
+
+<script>
+document.getElementById("fetch-btn").addEventListener("click", function() {
+    const url = document.querySelector("input[name='auction_url']").value;
+    if (!url) { alert("Enter a URL first"); return; }
+
+    fetch("/api/scrape-auction/?url=" + encodeURIComponent(url))
+        .then(res => res.json())
+        .then(data => {
+            for (let field in data) {
+                const input = document.querySelector(`[name='${field}']`);
+                if (input) input.value = data[field];
+            }
+        })
+        .catch(err => alert("Error fetching info: " + err));
+});
+</script>
+
 {% endblock %}

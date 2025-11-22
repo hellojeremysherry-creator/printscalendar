@@ -9,4 +9,6 @@ urlpatterns = [
     path('event/add/', views.SaleEventCreateView.as_view(), name='event_add'),
     path('event/<int:pk>/edit/', views.SaleEventUpdateView.as_view(), name='event_edit'),
     path('event/<int:pk>/delete/', views.SaleEventDeleteView.as_view(), name='event_delete'),
+    path("api/scrape-auction/", views.scrape_auction, name="scrape_auction"),
+
 ]
