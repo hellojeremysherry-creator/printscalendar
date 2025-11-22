@@ -15,20 +15,29 @@
 </button>
 
 <script>
+const scrapeUrl = "{% url 'calendarapp:scrape_auction' %}";
+
 document.getElementById("fetch-btn").addEventListener("click", function() {
     const url = document.querySelector("input[name='auction_url']").value;
     if (!url) { alert("Enter a URL first"); return; }
 
-    fetch("/api/scrape-auction/?url=" + encodeURIComponent(url))
+    fetch(scrapeUrl + "?url=" + encodeURIComponent(url))
         .then(res => res.json())
         .then(data => {
+            if (data.error) {
+                alert("Error: " + data.error);
+                return;
+            }
             for (let field in data) {
                 const input = document.querySelector(`[name='${field}']`);
-                if (input) input.value = data[field];
+                if (input && data[field]) {
+                    input.value = data[field];
+                }
             }
         })
         .catch(err => alert("Error fetching info: " + err));
 });
 </script>
+
 
 {% endblock %}
