@@ -9,8 +9,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-later')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
-ALLOWED_HOSTS += ['printscalendar.xyz', 'www.printscalendar.xyz']
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'printscalendar.xyz', 'www.printscalendar.xyz']
+# ALLOWED_HOSTS += ['printscalendar.xyz', 'www.printscalendar.xyz']
 
 RENDER_EXTERNAL_HOSTNAME = os.getenv('RENDER_EXTERNAL_HOSTNAME')
 if RENDER_EXTERNAL_HOSTNAME:
