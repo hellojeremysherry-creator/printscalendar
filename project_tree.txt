@@ -129,9 +129,11 @@ printscalendar
 │       from django.utils import timezone
 │       from .models import SaleEvent
 │       from .forms import SaleEventForm
+│       import re
 │       import requests
 │       from bs4 import BeautifulSoup
 │       from django.http import JsonResponse
+│       
 │       
 │       def scrape_auction(request):
 │           url = request.GET.get("url")
@@ -139,23 +141,69 @@ printscalendar
 │               return JsonResponse({"error": "Missing URL"}, status=400)
 │       
 │           try:
-│               headers = { "User-Agent": "Mozilla/5.0" }
-│               html = requests.get(url, headers=headers).text
-│               soup = BeautifulSoup(html, "html.parser")
+│               headers = {"User-Agent": "Mozilla/5.0"}
+│               resp = requests.get(url, headers=headers, timeout=10)
+│               resp.raise_for_status()
 │       
-│               # These selectors may need tweaking depending on the page
-│               title = soup.select_one(".auction-title").get_text(strip=True)
-│               date = soup.select_one(".auction-date").get_text(strip=True)
-│               house = soup.select_one(".auction-house").get_text(strip=True)
+│               soup = BeautifulSoup(resp.text, "html.parser")
 │       
-│               return JsonResponse({
-│                   "title": title,
-│                   "auction_house": house,
-│                   "start_date": date,   # you may need to date-parse
-│               })
+│               # --- 1) Auction title (use <h1> as a safe default) ---
+│               title_tag = soup.find("h1")
+│               title = title_tag.get_text(strip=True) if title_tag else ""
+│       
+│               # --- 2) Auction house (the "by [House]" link near the title) ---
+│               auction_house = ""
+│               # Simple heuristic: find the first link inside the main content that
+│               # looks like an auction house. You can refine this later if needed.
+│               for a in soup.find_all("a"):
+│                   txt = a.get_text(strip=True)
+│                   if "GmbH" in txt or "Auction" in txt or "Auktionshaus" in txt:
+│                       auction_house = txt
+│                       break
+│       
+│               # --- 3) Date + location line ---
+│               # Look for a chunk of text that looks like:
+│               # "November 22, 2025 at 10:00 AM CET (in progress) • Plauen, Germany • Auction Details"
+│               full_text = soup.get_text(" ", strip=True)
+│       
+│               date_location_match = re.search(
+│                   r"([A-Za-z]+ \d{1,2}, \d{4} at \d{1,2}:\d{2} [AP]M [A-Z]+).*?•\s*([^•]+)\s*•\s*Auction Details",
+│                   full_text,
+│               )
+│       
+│               start_date_iso = ""
+│               location = ""
+│       
+│               if date_location_match:
+│                   date_str = date_location_match.group(1)  # "November 22, 2025 at 10:00 AM CET"
+│                   location = date_location_match.group(2)  # "Plauen, Germany"
+│       
+│                   # Drop the timezone (last token) to parse with strptime
+│                   parts = date_str.split()
+│                   if len(parts) >= 6:
+│                       date_no_tz = " ".join(parts[:-1])  # "November 22, 2025 at 10:00 AM"
+│                       from datetime import datetime
+│                       try:
+│                           dt = datetime.strptime(date_no_tz, "%B %d, %Y at %I:%M %p")
+│                           start_date_iso = dt.date().isoformat()  # YYYY-MM-DD for your DateField
+│                       except ValueError:
+│                           # If parsing fails, just leave it blank; you can fill manually.
+│                           start_date_iso = ""
+│       
+│               data = {
+│                   "title": title or "",
+│                   "auction_house": auction_house or "",
+│                   "location": location or "",
+│                   "start_date": start_date_iso or "",  # This maps nicely to your DateField
+│                   # You could also pre-fill notes with the URL:
+│                   # "notes": f"Source: {url}",
+│               }
+│       
+│               return JsonResponse(data)
 │       
 │           except Exception as e:
 │               return JsonResponse({"error": str(e)}, status=500)
+│       
 │       
 │       
 │       class MonthView(generic.TemplateView):
@@ -458,12 +506,11 @@ printscalendar
 │   ├── urls.py
 │   │   from django.contrib import admin
 │   │   from django.urls import path, include
-│   │   from calendarapp import views
+│   │   # from calendarapp import views
 │   │   
 │   │   urlpatterns = [
 │   │       path('admin/', admin.site.urls),
 │   │       path('', include('calendarapp.urls')),
-│   │       path("api/scrape-auction/", views.scrape_auction, name="scrape_auction"),
 │   │   
 │   │   ]
 │   └── wsgi.py
@@ -574,21 +621,30 @@ printscalendar
 │       │   </button>
 │       │   
 │       │   <script>
+│       │   const scrapeUrl = "{% url 'calendarapp:scrape_auction' %}";
+│       │   
 │       │   document.getElementById("fetch-btn").addEventListener("click", function() {
 │       │       const url = document.querySelector("input[name='auction_url']").value;
 │       │       if (!url) { alert("Enter a URL first"); return; }
 │       │   
-│       │       fetch("/api/scrape-auction/?url=" + encodeURIComponent(url))
+│       │       fetch(scrapeUrl + "?url=" + encodeURIComponent(url))
 │       │           .then(res => res.json())
 │       │           .then(data => {
+│       │               if (data.error) {
+│       │                   alert("Error: " + data.error);
+│       │                   return;
+│       │               }
 │       │               for (let field in data) {
 │       │                   const input = document.querySelector(`[name='${field}']`);
-│       │                   if (input) input.value = data[field];
+│       │                   if (input && data[field]) {
+│       │                       input.value = data[field];
+│       │                   }
 │       │               }
 │       │           })
 │       │           .catch(err => alert("Error fetching info: " + err));
 │       │   });
 │       │   </script>
+│       │   
 │       │   
 │       │   {% endblock %}
 │       └── month_view.html
