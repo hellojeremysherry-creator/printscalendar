@@ -4,12 +4,13 @@ def main():
     USE_LIVE = True  # Set to False to use local Django dev server
 
     if USE_LIVE:
-        app_url = "https://printscalendar.xyz/event/add/"
+        # Root URL shows the month view (because of your project urls.py)
+        app_url = "https://printscalendar.xyz/"
     else:
-        app_url = "http://127.0.0.1:8000/event/add/"  # requires: python manage.py runserver
+        app_url = "http://127.0.0.1:8000/"  # requires: python manage.py runserver
 
     window = webview.create_window(
-        "Prints Calendar — Add Sale",
+        "Prints Calendar",
         app_url,
         width=900,
         height=700,
