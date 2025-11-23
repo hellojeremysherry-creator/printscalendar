@@ -120,6 +120,8 @@ printscalendar
 │   │       path('event/<int:pk>/delete/', views.SaleEventDeleteView.as_view(), name='event_delete'),
 │   │       path("api/scrape-auction/", views.scrape_auction, name="scrape_auction"),
 │   │   
+│   │       # NEW:
+│   │       path("api/create-from-page/", views.create_event_from_page, name="create_from_page"),
 │   │   ]
 │   └── views.py
 │       import calendar
@@ -134,7 +136,10 @@ printscalendar
 │       from requests.exceptions import HTTPError
 │       from bs4 import BeautifulSoup
 │       from django.http import JsonResponse
-│       
+│       import json
+│       from django.views.decorators.csrf import csrf_exempt
+│       from django.utils.dateparse import parse_date
+│       from django.views.decorators.http import require_POST
 │       
 │       def scrape_auction(request):
 │           url = request.GET.get("url")
@@ -250,19 +255,21 @@ printscalendar
 │                   year = today.year
 │                   month = today.month
 │       
-│               # Calendar matrix: list of weeks, each week is list of (day, events)
-│               cal = calendar.Calendar(firstweekday=0)  # Monday = 0 if you want
+│               cal = calendar.Calendar(firstweekday=0)
 │               month_days = cal.itermonthdates(year, month)
 │       
 │               weeks = []
 │               week = []
 │               for d in month_days:
-│                   day_events = SaleEvent.objects.filter(
-│                       start_date__lte=d,
-│                       end_date__gte=d
-│                   ) | SaleEvent.objects.filter(
-│                       start_date=d,
-│                       end_date__isnull=True
+│                   day_events = (
+│                       SaleEvent.objects.filter(
+│                           start_date__lte=d,
+│                           end_date__gte=d
+│                       ) |
+│                       SaleEvent.objects.filter(
+│                           start_date=d,
+│                           end_date__isnull=True
+│                       )
 │                   )
 │       
 │                   week.append((d, day_events.distinct()))
@@ -295,7 +302,15 @@ printscalendar
 │               context['next_year'] = next_year
 │               context['next_month'] = next_month
 │       
+│               # NEW: extra context for UI niceties
+│               context['today'] = today
+│               context['upcoming_events'] = (
+│                   SaleEvent.objects.filter(start_date__gte=today)
+│                   .order_by('start_date')[:10]
+│               )
+│       
 │               return context
+│       
 │       
 │       
 │       class DayView(generic.TemplateView):
@@ -339,6 +354,62 @@ printscalendar
 │           model = SaleEvent
 │           template_name = 'calendarapp/event_confirm_delete.html'
 │           success_url = reverse_lazy('calendarapp:month_view')
+│       
+│       
+│       @csrf_exempt
+│       @require_POST
+│       def create_event_from_page(request):
+│           """
+│           Create a SaleEvent from JSON posted by a bookmarklet running in the browser
+│           on the auction site page.
+│           Expected JSON:
+│             {
+│               "url": "...",
+│               "title": "...",
+│               "auction_house": "...",
+│               "location": "...",
+│               "start_date": "YYYY-MM-DD",
+│               "notes": "optional extra notes"
+│             }
+│           """
+│           try:
+│               data = json.loads(request.body.decode("utf-8"))
+│           except Exception:
+│               return JsonResponse({"error": "Invalid JSON"}, status=400)
+│       
+│           title = (data.get("title") or "").strip()
+│           start_date_str = (data.get("start_date") or "").strip()
+│       
+│           if not title:
+│               return JsonResponse({"error": "Missing title"}, status=400)
+│       
+│           start_date = parse_date(start_date_str) or timezone.localdate()
+│       
+│           notes_parts = []
+│           if data.get("notes"):
+│               notes_parts.append(data["notes"])
+│           if data.get("url"):
+│               notes_parts.append(f"Source: {data['url']}")
+│           notes = "\n\n".join(notes_parts)
+│       
+│           event = SaleEvent.objects.create(
+│               title=title,
+│               auction_house=data.get("auction_house", "")[:200],
+│               location=data.get("location", "")[:200],
+│               start_date=start_date,
+│               end_date=None,
+│               status="researching",
+│               notes=notes,
+│           )
+│       
+│           return JsonResponse(
+│               {
+│                   "ok": True,
+│                   "id": event.id,
+│                   "title": event.title,
+│                   "start_date": str(event.start_date),
+│               }
+│           )
 ├── desktop_app.py
 │   import webview
 │   
@@ -566,8 +637,80 @@ printscalendar
 │       │       <title>Prints Calendar</title>
 │       │       <link rel="stylesheet"
 │       │             href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+│       │   
+│       │       <style>
+│       │           body {
+│       │               background-color: #f5f5f7;
+│       │           }
+│       │   
+│       │           .navbar-brand {
+│       │               font-weight: 600;
+│       │           }
+│       │   
+│       │           .day-cell-today {
+│       │               border: 2px solid #0d6efd;
+│       │               box-shadow: 0 0 0.5rem rgba(13, 110, 253, 0.4);
+│       │               background-color: #e7f1ff;
+│       │           }
+│       │   
+│       │           .day-cell-outside {
+│       │               color: #adb5bd;
+│       │               background-color: #f8f9fa;
+│       │           }
+│       │   
+│       │           .event-chip {
+│       │               font-size: 0.78rem;
+│       │               padding: 0.1rem 0.35rem;
+│       │               border-radius: 999px;
+│       │               white-space: nowrap;
+│       │               overflow: hidden;
+│       │               text-overflow: ellipsis;
+│       │               max-width: 100%;
+│       │           }
+│       │   
+│       │           .status-dot {
+│       │               display: inline-block;
+│       │               width: 0.6rem;
+│       │               height: 0.6rem;
+│       │               border-radius: 50%;
+│       │               margin-right: 0.2rem;
+│       │           }
+│       │   
+│       │           .status-researching { background-color: #6c757d; }  /* gray */
+│       │           .status-preparing   { background-color: #ffc107; }  /* yellow */
+│       │           .status-bidding     { background-color: #198754; }  /* green */
+│       │           .status-passed      { background-color: #adb5bd; }  /* muted */
+│       │   
+│       │           .event-chip-researching {
+│       │               background-color: #e9ecef;
+│       │               color: #495057;
+│       │           }
+│       │   
+│       │           .event-chip-preparing {
+│       │               background-color: #fff3cd;
+│       │               color: #856404;
+│       │           }
+│       │   
+│       │           .event-chip-bidding {
+│       │               background-color: #d1e7dd;
+│       │               color: #0f5132;
+│       │           }
+│       │   
+│       │           .event-chip-passed {
+│       │               background-color: #f8f9fa;
+│       │               color: #6c757d;
+│       │               text-decoration: line-through;
+│       │           }
+│       │   
+│       │           .sidebar-heading {
+│       │               font-size: 0.9rem;
+│       │               text-transform: uppercase;
+│       │               letter-spacing: 0.08em;
+│       │               color: #6c757d;
+│       │           }
+│       │       </style>
 │       │   </head>
-│       │   <body class="bg-light">
+│       │   <body>
 │       │   <nav class="navbar navbar-dark bg-dark mb-4">
 │       │       <div class="container">
 │       │           <a class="navbar-brand" href="{% url 'calendarapp:month_view' %}">
@@ -588,33 +731,58 @@ printscalendar
 │       │   {% extends "calendarapp/base.html" %}
 │       │   
 │       │   {% block content %}
-│       │   <h2>Events on {{ date }}</h2>
-│       │   
-│       │   <a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary mb-3">
-│       │       ← Back to month
-│       │   </a>
+│       │   <div class="d-flex justify-content-between align-items-center mb-3">
+│       │       <div>
+│       │           <h2 class="mb-0">Events on {{ date|date:"F j, Y" }}</h2>
+│       │           <small class="text-muted">All sales happening this day</small>
+│       │       </div>
+│       │       <a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary">
+│       │           ← Back to month
+│       │       </a>
+│       │   </div>
 │       │   
 │       │   {% if events %}
 │       │       <div class="list-group">
 │       │           {% for event in events %}
 │       │               <div class="list-group-item">
-│       │                   <h5 class="mb-1">{{ event.title }}</h5>
-│       │                   <small class="text-muted">
-│       │                       {{ event.auction_house }} {% if event.location %}– {{ event.location }}{% endif %}
-│       │                   </small>
-│       │                   <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
-│       │                   <span class="badge bg-info text-dark">{{ event.get_status_display }}</span>
+│       │                   <div class="d-flex justify-content-between">
+│       │                       <div>
+│       │                           <h5 class="mb-1">{{ event.title }}</h5>
+│       │                           <small class="text-muted">
+│       │                               {{ event.auction_house }}
+│       │                               {% if event.location %} · {{ event.location }}{% endif %}
+│       │                           </small>
+│       │                       </div>
+│       │                       <div class="text-end">
+│       │                           <span class="badge bg-info text-dark mb-1">
+│       │                               {{ event.get_status_display }}
+│       │                           </span>
+│       │                           <div class="small text-muted">
+│       │                               {% if event.end_date and event.end_date != event.start_date %}
+│       │                                   {{ event.start_date|date:"M j" }} – {{ event.end_date|date:"M j" }}
+│       │                               {% else %}
+│       │                                   {{ event.start_date|date:"M j" }}
+│       │                               {% endif %}
+│       │                           </div>
+│       │                       </div>
+│       │                   </div>
+│       │                   {% if event.notes %}
+│       │                       <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
+│       │                   {% endif %}
 │       │                   <div class="mt-2">
-│       │                       <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">Edit</a>
-│       │                       <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+│       │                       <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">
+│       │                           Edit
+│       │                       </a>
+│       │                       <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">
+│       │                           Delete
+│       │                       </a>
 │       │                   </div>
 │       │               </div>
 │       │           {% endfor %}
 │       │       </div>
 │       │   {% else %}
-│       │       <p>No sales on this day yet.</p>
+│       │       <p class="text-muted">No sales on this day yet.</p>
 │       │   {% endif %}
-│       │   
 │       │   {% endblock %}
 │       ├── event_confirm_delete.html
 │       │   {% extends "calendarapp/base.html" %}
@@ -678,58 +846,143 @@ printscalendar
 │           {% load static %}
 │           
 │           {% block content %}
-│           <h2 class="mb-3">{{ month_name }} {{ year }}</h2>
-│           
-│           <div class="d-flex justify-content-between mb-3">
-│               <a class="btn btn-sm btn-outline-secondary"
-│                  href="?year={{ prev_year }}&month={{ prev_month }}">← Previous</a>
-│               <a class="btn btn-sm btn-outline-secondary"
-│                  href="?year={{ next_year }}&month={{ next_month }}">Next →</a>
+│           <div class="d-flex justify-content-between align-items-center mb-3">
+│               <div>
+│                   <h2 class="mb-0">{{ month_name }} {{ year }}</h2>
+│                   <small class="text-muted">Click a day to see full details</small>
+│               </div>
+│               <div class="d-flex gap-2">
+│                   <a class="btn btn-sm btn-outline-secondary"
+│                      href="?year={{ prev_year }}&month={{ prev_month }}">← Previous</a>
+│                   <a class="btn btn-sm btn-outline-secondary"
+│                      href="?year={{ next_year }}&month={{ next_month }}">Next →</a>
+│               </div>
 │           </div>
 │           
-│           <table class="table table-bordered bg-white">
-│               <thead class="table-light">
-│               <tr>
-│                   <th>Mon</th>
-│                   <th>Tue</th>
-│                   <th>Wed</th>
-│                   <th>Thu</th>
-│                   <th>Fri</th>
-│                   <th>Sat</th>
-│                   <th>Sun</th>
-│               </tr>
-│               </thead>
-│               <tbody>
-│               {% for week in weeks %}
-│                   <tr>
-│                       {% for day, events in week %}
-│                           <td class="{% if day.month != month %}text-muted bg-light{% endif %}"
-│                               style="vertical-align: top; font-size: 0.9rem;">
-│                               <div class="d-flex justify-content-between">
-│                                   <strong>{{ day.day }}</strong>
-│                                   {% if events %}
-│                                       <span class="badge bg-primary">{{ events|length }}</span>
-│                                   {% endif %}
-│                               </div>
-│                               {% for event in events %}
-│               <div class="mt-1 d-flex justify-content-between align-items-center">
-│                   <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}">
-│                       {{ event.title }}
-│                   </a>
-│                   <span>
-│                       <a href="{% url 'calendarapp:event_edit' event.pk %}"
-│                          class="btn btn-sm btn-outline-primary py-0 px-1">✏️</a>
-│                       <a href="{% url 'calendarapp:event_delete' event.pk %}"
-│                          class="btn btn-sm btn-outline-danger py-0 px-1">🗑️</a>
-│                   </span>
-│               </div>
-│           {% endfor %}
+│           <div class="row">
+│               <!-- Calendar -->
+│               <div class="col-lg-8 mb-4">
+│                   <table class="table table-bordered bg-white align-middle">
+│                       <thead class="table-light text-center">
+│                       <tr>
+│                           <th>Mon</th>
+│                           <th>Tue</th>
+│                           <th>Wed</th>
+│                           <th>Thu</th>
+│                           <th>Fri</th>
+│                           <th>Sat</th>
+│                           <th>Sun</th>
+│                       </tr>
+│                       </thead>
+│                       <tbody>
+│                       {% for week in weeks %}
+│                           <tr>
+│                               {% for day, events in week %}
+│                                   {% comment %}
+│                                   Decide cell classes:
+│                                   - outside current month → faded
+│                                   - today → highlighted
+│                                   {% endcomment %}
+│                                   {% with classes="" %}
+│                                       {% if day.month != month %}
+│                                           {% with classes=classes|add:" day-cell-outside" %}
+│                                           {% endwith %}
+│                                       {% endif %}
+│                                       {% if day == today %}
+│                                           {% with classes=classes|add:" day-cell-today" %}
+│                                           {% endwith %}
+│                                       {% endif %}
+│                                       <td class="p-1 {{ classes }}" style="font-size: 0.85rem;">
+│                                           <div class="d-flex justify-content-between align-items-center mb-1">
+│                                               <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}"
+│                                                  class="fw-semibold text-decoration-none {% if day.month != month %}text-muted{% endif %}">
+│                                                   {{ day.day }}
+│                                               </a>
+│                                               {% if events %}
+│                                                   <span class="badge bg-primary rounded-pill">
+│                                                       {{ events|length }}
+│                                                   </span>
+│                                               {% endif %}
+│                                           </div>
 │           
-│                           </td>
+│                                           {% for event in events %}
+│                                               {% with event.status as st %}
+│                                                   <div class="event-chip mt-1
+│                                                       {% if st == 'researching' %}event-chip-researching{% endif %}
+│                                                       {% if st == 'preparing' %}event-chip-preparing{% endif %}
+│                                                       {% if st == 'bidding' %}event-chip-bidding{% endif %}
+│                                                       {% if st == 'passed' %}event-chip-passed{% endif %}
+│                                                   ">
+│                                                       <span class="status-dot
+│                                                           {% if st == 'researching' %}status-researching{% endif %}
+│                                                           {% if st == 'preparing' %}status-preparing{% endif %}
+│                                                           {% if st == 'bidding' %}status-bidding{% endif %}
+│                                                           {% if st == 'passed' %}status-passed{% endif %}
+│                                                       "></span>
+│                                                       {{ event.title|truncatechars:26 }}
+│                                                   </div>
+│                                               {% endwith %}
+│                                           {% empty %}
+│                                               <div class="text-muted" style="font-size: 0.7rem;">
+│                                                   &nbsp;
+│                                               </div>
+│                                           {% endfor %}
+│                                       </td>
+│                                   {% endwith %}
+│                               {% endfor %}
+│                           </tr>
 │                       {% endfor %}
-│                   </tr>
-│               {% endfor %}
-│               </tbody>
-│           </table>
+│                       </tbody>
+│                   </table>
+│           
+│                   <!-- Legend -->
+│                   <div class="d-flex flex-wrap gap-3 small text-muted">
+│                       <div><span class="status-dot status-researching"></span>Researching</div>
+│                       <div><span class="status-dot status-preparing"></span>Preparing</div>
+│                       <div><span class="status-dot status-bidding"></span>Bidding</div>
+│                       <div><span class="status-dot status-passed"></span>Passed</div>
+│                       <div class="ms-auto">
+│                           <span class="border border-primary rounded px-2 py-1 small">Today highlighted in blue</span>
+│                       </div>
+│                   </div>
+│               </div>
+│           
+│               <!-- Sidebar: upcoming events -->
+│               <div class="col-lg-4">
+│                   <div class="card">
+│                       <div class="card-body">
+│                           <div class="sidebar-heading mb-2">Upcoming sales</div>
+│                           {% if upcoming_events %}
+│                               <div class="list-group list-group-flush">
+│                                   {% for event in upcoming_events %}
+│                                       <a href="{% url 'calendarapp:day_view' event.start_date.year event.start_date.month event.start_date.day %}"
+│                                          class="list-group-item list-group-item-action px-0 border-0">
+│                                           <div class="d-flex justify-content-between">
+│                                               <div>
+│                                                   <div class="fw-semibold">{{ event.title|truncatechars:40 }}</div>
+│                                                   <div class="small text-muted">
+│                                                       {{ event.auction_house }}
+│                                                       {% if event.location %} · {{ event.location }}{% endif %}
+│                                                   </div>
+│                                               </div>
+│                                               <div class="text-end">
+│                                                   <div class="small fw-semibold">
+│                                                       {{ event.start_date|date:"M j" }}
+│                                                   </div>
+│                                                   <span class="badge rounded-pill bg-light text-muted">
+│                                                       {{ event.get_status_display }}
+│                                                   </span>
+│                                               </div>
+│                                           </div>
+│                                       </a>
+│                                   {% endfor %}
+│                               </div>
+│                           {% else %}
+│                               <p class="text-muted mb-0 small">No upcoming sales yet. Add one to get started!</p>
+│                           {% endif %}
+│                       </div>
+│                   </div>
+│               </div>
+│           </div>
 │           {% endblock %}
 └─

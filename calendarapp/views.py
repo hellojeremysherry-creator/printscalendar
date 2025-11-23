@@ -5,12 +5,15 @@ from django.views import generic
 from django.utils import timezone
 from .models import SaleEvent
 from .forms import SaleEventForm
-import re
+import dateutil
 import requests
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
 from django.http import JsonResponse
-
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST
 
 def scrape_auction(request):
     url = request.GET.get("url")
@@ -24,87 +27,72 @@ def scrape_auction(request):
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
                 "Chrome/129.0.0.0 Safari/537.36"
             ),
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Referer": url,  # sometimes helps
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
         }
         resp = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
         try:
             resp.raise_for_status()
         except HTTPError:
-            # Specific handling for 403
             if resp.status_code == 403:
                 return JsonResponse({
-                    "error": (
-                        "The auction site returned 403 Forbidden. "
-                        "They may be blocking automated requests from our server."
-                    )
+                    "error": "The auction site returned 403 Forbidden. They may be blocking automated requests."
                 }, status=502)
-            # Generic HTTP error
             return JsonResponse({
                 "error": f"HTTP error from auction site: {resp.status_code}"
             }, status=502)
 
         soup = BeautifulSoup(resp.text, "html.parser")
 
-        # --- 1) Auction title (use <h1> as a safe default) ---
-        title_tag = soup.find("h1")
-        title = title_tag.get_text(strip=True) if title_tag else ""
-
-        # --- 2) Auction house (the "by [House]" link near the title) ---
+        # Default values
+        title = ""
         auction_house = ""
-        # Simple heuristic: find the first link inside the main content that
-        # looks like an auction house. You can refine this later if needed.
-        for a in soup.find_all("a"):
-            txt = a.get_text(strip=True)
-            if "GmbH" in txt or "Auction" in txt or "Auktionshaus" in txt:
-                auction_house = txt
-                break
-
-        # --- 3) Date + location line ---
-        # Look for a chunk of text that looks like:
-        # "November 22, 2025 at 10:00 AM CET (in progress) • Plauen, Germany • Auction Details"
-        full_text = soup.get_text(" ", strip=True)
-
-        date_location_match = re.search(
-            r"([A-Za-z]+ \d{1,2}, \d{4} at \d{1,2}:\d{2} [AP]M [A-Z]+).*?•\s*([^•]+)\s*•\s*Auction Details",
-            full_text,
-        )
-
-        start_date_iso = ""
         location = ""
+        start_date_iso = ""
 
-        if date_location_match:
-            date_str = date_location_match.group(1)  # "November 22, 2025 at 10:00 AM CET"
-            location = date_location_match.group(2)  # "Plauen, Germany"
+        if "invaluable.com" in url:
+            # ====== SPECIAL CASE: Invaluable ======
+            # These selectors are examples – tweak them after inspecting the actual HTML.
+            h1 = soup.select_one("h1")  # or more specific selector
+            if h1:
+                title = h1.get_text(strip=True)
 
-            # Drop the timezone (last token) to parse with strptime
-            parts = date_str.split()
-            if len(parts) >= 6:
-                date_no_tz = " ".join(parts[:-1])  # "November 22, 2025 at 10:00 AM"
-                from datetime import datetime
+            house_el = soup.find("a", class_="auction-house-name") or soup.find("a", attrs={"data-auction-house": True})
+            if house_el:
+                auction_house = house_el.get_text(strip=True)
+
+            # Maybe date/time in a specific span/div:
+            datetime_el = soup.find("time") or soup.find("span", class_="auction-date")
+            if datetime_el:
+                text = datetime_el.get_text(strip=True)
+                # Try to parse with dateutil for flexibility
+                from dateutil import parser
                 try:
-                    dt = datetime.strptime(date_no_tz, "%B %d, %Y at %I:%M %p")
-                    start_date_iso = dt.date().isoformat()  # YYYY-MM-DD for your DateField
-                except ValueError:
-                    # If parsing fails, just leave it blank; you can fill manually.
-                    start_date_iso = ""
+                    dt = parser.parse(text, fuzzy=True)
+                    start_date_iso = dt.date().isoformat()
+                except Exception:
+                    pass
+
+            location_el = soup.find("span", class_="auction-location")
+            if location_el:
+                location = location_el.get_text(strip=True)
+        else:
+            # ====== your existing generic logic here ======
+            full_text = soup.get_text(" ", strip=True)
+            # ... your regex stuff ...
+            # set title, auction_house, location, start_date_iso as before
+            title_tag = soup.find("h1")
+            title = title_tag.get_text(strip=True) if title_tag else ""
 
         data = {
             "title": title or "",
             "auction_house": auction_house or "",
             "location": location or "",
-            "start_date": start_date_iso or "",  # This maps nicely to your DateField
-            # You could also pre-fill notes with the URL:
-            # "notes": f"Source: {url}",
+            "start_date": start_date_iso or "",
         }
-
         return JsonResponse(data)
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
 
 
 
@@ -225,3 +213,59 @@ class SaleEventDeleteView(generic.DeleteView):
     model = SaleEvent
     template_name = 'calendarapp/event_confirm_delete.html'
     success_url = reverse_lazy('calendarapp:month_view')
+
+
+@csrf_exempt
+@require_POST
+def create_event_from_page(request):
+    """
+    Create a SaleEvent from JSON posted by a bookmarklet running in the browser
+    on the auction site page.
+    Expected JSON:
+      {
+        "url": "...",
+        "title": "...",
+        "auction_house": "...",
+        "location": "...",
+        "start_date": "YYYY-MM-DD",
+        "notes": "optional extra notes"
+      }
+    """
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    title = (data.get("title") or "").strip()
+    start_date_str = (data.get("start_date") or "").strip()
+
+    if not title:
+        return JsonResponse({"error": "Missing title"}, status=400)
+
+    start_date = parse_date(start_date_str) or timezone.localdate()
+
+    notes_parts = []
+    if data.get("notes"):
+        notes_parts.append(data["notes"])
+    if data.get("url"):
+        notes_parts.append(f"Source: {data['url']}")
+    notes = "\n\n".join(notes_parts)
+
+    event = SaleEvent.objects.create(
+        title=title,
+        auction_house=data.get("auction_house", "")[:200],
+        location=data.get("location", "")[:200],
+        start_date=start_date,
+        end_date=None,
+        status="researching",
+        notes=notes,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "id": event.id,
+            "title": event.title,
+            "start_date": str(event.start_date),
+        }
+    )
