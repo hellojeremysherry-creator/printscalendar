@@ -2,15 +2,6 @@ printscalendar
 ├── calendarapp
 │   ├── __init__.py
 │   ├── admin.py
-│   │   from django.contrib import admin
-│   │   from .models import SaleEvent
-│   │   
-│   │   
-│   │   @admin.register(SaleEvent)
-│   │   class SaleEventAdmin(admin.ModelAdmin):
-│   │       list_display = ('title', 'start_date', 'status', 'auction_house')
-│   │       list_filter = ('status', 'auction_house', 'start_date')
-│   │       search_fields = ('title', 'auction_house', 'notes', 'analysis_notes')  # ← add
 │   ├── apps.py
 │   ├── forms.py
 │   │   from django import forms
@@ -629,6 +620,18 @@ printscalendar
 │       │               box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 │       │           }
 │       │   
+│       │        .day-link {
+│       │               display: block;
+│       │               width: 100%;
+│       │               height: 100%;
+│       │               padding: 0.35rem;            /* similar to your td .p-1 */
+│       │               text-decoration: none;
+│       │               color: inherit;
+│       │           }
+│       │   
+│       │           .day-link:hover {
+│       │               background-color: rgba(13, 110, 253, 0.06);  /* soft hover */
+│       │           }
 │       │       </style>
 │       │   
 │       │   </head>
@@ -930,42 +933,44 @@ printscalendar
 │                                           {% with classes=classes|add:" day-cell-today" %}
 │                                           {% endwith %}
 │                                       {% endif %}
-│                                       <td class="p-1 {{ classes }}" style="font-size: 0.85rem;">
-│                                           <div class="d-flex justify-content-between align-items-center mb-1">
-│                                               <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}"
-│                                                  class="fw-semibold text-decoration-none {% if day.month != month %}text-muted{% endif %}">
-│                                                   {{ day.day }}
-│                                               </a>
-│                                               {% if events %}
-│                                                   <span class="badge bg-primary rounded-pill">
-│                                                       {{ events|length }}
+│                                       <td class="{{ classes }}" style="font-size: 0.85rem;">
+│                                           <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}"
+│                                              class="day-link {% if day.month != month %}text-muted{% endif %}">
+│                                               <div class="d-flex justify-content-between align-items-center mb-1">
+│                                                   <span class="fw-semibold">
+│                                                       {{ day.day }}
 │                                                   </span>
-│                                               {% endif %}
-│                                           </div>
-│           
-│                                           {% for event in events %}
-│                                               {% with event.status as st %}
-│                                                   <div class="event-chip mt-1
-│                                                       {% if st == 'researching' %}event-chip-researching{% endif %}
-│                                                       {% if st == 'preparing' %}event-chip-preparing{% endif %}
-│                                                       {% if st == 'bidding' %}event-chip-bidding{% endif %}
-│                                                       {% if st == 'passed' %}event-chip-passed{% endif %}
-│                                                   ">
-│                                                       <span class="status-dot
-│                                                           {% if st == 'researching' %}status-researching{% endif %}
-│                                                           {% if st == 'preparing' %}status-preparing{% endif %}
-│                                                           {% if st == 'bidding' %}status-bidding{% endif %}
-│                                                           {% if st == 'passed' %}status-passed{% endif %}
-│                                                       "></span>
-│                                                       {{ event.title|truncatechars:26 }}
-│                                                       {% if event.has_analysis %} ✏️{% endif %}
-│                                                   </div>
-│                                               {% endwith %}
-│                                           {% empty %}
-│                                               <div class="text-muted" style="font-size: 0.7rem;">
-│                                                   &nbsp;
+│                                                   {% if events %}
+│                                                       <span class="badge bg-primary rounded-pill">
+│                                                           {{ events|length }}
+│                                                       </span>
+│                                                   {% endif %}
 │                                               </div>
-│                                           {% endfor %}
+│           
+│                                               {% for event in events %}
+│                                                   {% with event.status as st %}
+│                                                       <div class="event-chip mt-1
+│                                                           {% if st == 'researching' %}event-chip-researching{% endif %}
+│                                                           {% if st == 'preparing' %}event-chip-preparing{% endif %}
+│                                                           {% if st == 'bidding' %}event-chip-bidding{% endif %}
+│                                                           {% if st == 'passed' %}event-chip-passed{% endif %}
+│                                                       ">
+│                                                           <span class="status-dot
+│                                                               {% if st == 'researching' %}status-researching{% endif %}
+│                                                               {% if st == 'preparing' %}status-preparing{% endif %}
+│                                                               {% if st == 'bidding' %}status-bidding{% endif %}
+│                                                               {% if st == 'passed' %}status-passed{% endif %}
+│                                                           "></span>
+│                                                           {{ event.title|truncatechars:26 }}
+│                                                           {% if event.has_analysis %} ✏️{% endif %}
+│                                                       </div>
+│                                                   {% endwith %}
+│                                               {% empty %}
+│                                                   <div class="text-muted" style="font-size: 0.7rem;">
+│                                                       &nbsp;
+│                                                   </div>
+│                                               {% endfor %}
+│                                           </a>
 │                                       </td>
 │                                   {% endwith %}
 │                               {% endfor %}

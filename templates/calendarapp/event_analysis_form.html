@@ -92,15 +92,45 @@
 
                 {{ form.analysis_notes.as_widget|safe }}
 
-                {# Add our styling class to the textarea #}
+                {# Add our styling class + wire up live preview #}
                 <script>
                     (function () {
-                        const el = document.getElementById("{{ form.analysis_notes.id_for_label }}");
-                        if (el) {
-                            el.classList.add("analysis-notes-textarea");
+                        const textarea = document.getElementById("{{ form.analysis_notes.id_for_label }}");
+                        const preview = document.getElementById("analysis-preview");
+
+                        if (textarea) {
+                            textarea.classList.add("analysis-notes-textarea");
+
+                            function renderPreview() {
+                                if (!preview) return;
+
+                                const text = textarea.value || "";
+                                if (window.marked) {
+                                    preview.innerHTML = marked.parse(text);
+                                } else {
+                                    // Fallback: just show raw text
+                                    preview.textContent = text;
+                                }
+                            }
+
+                            textarea.addEventListener("input", renderPreview);
+                            // Initial render on page load
+                            renderPreview();
                         }
                     })();
                 </script>
+
+                {% if form.analysis_notes.help_text %}
+                    <div class="form-text">{{ form.analysis_notes.help_text }}</div>
+                {% endif %}
+                {% for error in form.analysis_notes.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+
+                <div class="mt-4">
+                    <div class="label mb-1">Preview</div>
+                    <div id="analysis-preview" class="analysis-preview"></div>
+                </div>
 
                 {% if form.analysis_notes.help_text %}
                     <div class="form-text">{{ form.analysis_notes.help_text }}</div>
