@@ -1,98 +1,17 @@
 import calendar
-from datetime import date
-from django.urls import reverse_lazy
-from django.views import generic
-from django.utils import timezone
-from .models import SaleEvent
-from .forms import SaleEventForm
-import requests
-from requests.exceptions import HTTPError
-from bs4 import BeautifulSoup
-from django.http import JsonResponse
 import json
-from django.views.decorators.csrf import csrf_exempt
+from datetime import date
+
+from django.http import JsonResponse
+from django.urls import reverse_lazy
+from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.views import generic
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-def scrape_auction(request):
-    url = request.GET.get("url")
-    if not url:
-        return JsonResponse({"error": "Missing URL"}, status=400)
-
-    try:
-        headers = {
-            "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/129.0.0.0 Safari/537.36"
-            ),
-        }
-        resp = requests.get(url, headers=headers, timeout=10, allow_redirects=True)
-        try:
-            resp.raise_for_status()
-        except HTTPError:
-            if resp.status_code == 403:
-                return JsonResponse({
-                    "error": "The auction site returned 403 Forbidden. They may be blocking automated requests."
-                }, status=502)
-            return JsonResponse({
-                "error": f"HTTP error from auction site: {resp.status_code}"
-            }, status=502)
-
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # Default values
-        title = ""
-        auction_house = ""
-        location = ""
-        start_date_iso = ""
-
-        if "invaluable.com" in url:
-            # ====== SPECIAL CASE: Invaluable ======
-            # These selectors are examples – tweak them after inspecting the actual HTML.
-            h1 = soup.select_one("h1")  # or more specific selector
-            if h1:
-                title = h1.get_text(strip=True)
-
-            house_el = soup.find("a", class_="auction-house-name") or soup.find("a", attrs={"data-auction-house": True})
-            if house_el:
-                auction_house = house_el.get_text(strip=True)
-
-            # Maybe date/time in a specific span/div:
-            datetime_el = soup.find("time") or soup.find("span", class_="auction-date")
-            if datetime_el:
-                text = datetime_el.get_text(strip=True)
-                # Try to parse with dateutil for flexibility
-                from dateutil import parser
-                try:
-                    dt = parser.parse(text, fuzzy=True)
-                    start_date_iso = dt.date().isoformat()
-                except Exception:
-                    pass
-
-            location_el = soup.find("span", class_="auction-location")
-            if location_el:
-                location = location_el.get_text(strip=True)
-        else:
-            # ====== your existing generic logic here ======
-            full_text = soup.get_text(" ", strip=True)
-            # ... your regex stuff ...
-            # set title, auction_house, location, start_date_iso as before
-            title_tag = soup.find("h1")
-            title = title_tag.get_text(strip=True) if title_tag else ""
-
-        data = {
-            "title": title or "",
-            "auction_house": auction_house or "",
-            "location": location or "",
-            "start_date": start_date_iso or "",
-        }
-        return JsonResponse(data)
-
-    except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
-
-
+from .forms import SaleEventForm
+from .models import SaleEvent
 
 
 class MonthView(generic.TemplateView):
