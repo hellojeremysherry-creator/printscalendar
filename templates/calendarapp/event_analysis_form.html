@@ -1,36 +1,121 @@
 {% extends "calendarapp/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h2 class="mb-0">Research Notes: {{ object.title }}</h2>
-        <small class="text-muted">
-            {{ object.auction_house }}
-            {% if object.location %} · {{ object.location }}{% endif %}
-            · {{ object.start_date|date:"M j, Y" }}
-        </small>
+<div class="analysis-shell mx-auto">
+
+    <!-- Page header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Research Notes: {{ object.title }}</h2>
+            <div class="page-subtitle">
+                {{ object.auction_house }}
+                {% if object.location %} · {{ object.location }}{% endif %}
+                · {{ object.start_date|date:"M j, Y" }}
+            </div>
+        </div>
+        <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
+           class="btn btn-sm btn-outline-secondary">
+            ← Back to day
+        </a>
     </div>
-    <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
-       class="btn btn-sm btn-outline-secondary">
-        ← Back to day
-    </a>
+
+    <div class="row g-4">
+        <!-- Sidebar with event context -->
+        <div class="col-lg-4">
+            <div class="analysis-sidebar-card sticky-top" style="top: 5rem;">
+                <div class="label mb-2">Sale overview</div>
+
+                <div class="mb-2">
+                    <div class="fw-semibold small">{{ object.title }}</div>
+                    <div class="small text-muted">
+                        {{ object.auction_house }}
+                        {% if object.location %} · {{ object.location }}{% endif %}
+                    </div>
+                </div>
+
+                <div class="mb-2 small">
+                    <span class="fw-semibold">Date:</span>
+                    {% if object.end_date and object.end_date != object.start_date %}
+                        {{ object.start_date|date:"M j" }} – {{ object.end_date|date:"M j, Y" }}
+                    {% else %}
+                        {{ object.start_date|date:"M j, Y" }}
+                    {% endif %}
+                </div>
+
+                <div class="mb-2 small">
+                    <span class="fw-semibold">Status:</span>
+                    <span class="badge rounded-pill
+                        {% if object.status == 'researching' %} bg-secondary
+                        {% elif object.status == 'preparing' %} bg-warning text-dark
+                        {% elif object.status == 'bidding' %} bg-success
+                        {% elif object.status == 'passed' %} bg-light text-muted
+                        {% endif %}
+                    ">
+                        {{ object.get_status_display }}
+                    </span>
+                </div>
+
+                {% if object.notes %}
+                    <div class="mt-3">
+                        <div class="label mb-1">Quick notes</div>
+                        <div class="small text-muted" style="max-height: 8rem; overflow: hidden;">
+                            {{ object.notes|linebreaksbr }}
+                        </div>
+                    </div>
+                {% endif %}
+
+                <div class="mt-3 d-grid gap-2">
+                    <a href="{% url 'calendarapp:event_edit' object.pk %}"
+                       class="btn btn-sm btn-outline-primary">
+                        Edit sale details
+                    </a>
+                    <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
+                       class="btn btn-sm btn-outline-secondary">
+                        View day schedule
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main editor -->
+        <div class="col-lg-8">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <label class="form-label mb-0" for="{{ form.analysis_notes.id_for_label }}">
+                        {{ form.analysis_notes.label }}
+                    </label>
+                    <span class="text-muted small">
+                        Markdown-style headings and bullet points work well here.
+                    </span>
+                </div>
+
+                {{ form.analysis_notes.as_widget|safe }}
+
+                {# Add our styling class to the textarea #}
+                <script>
+                    (function () {
+                        const el = document.getElementById("{{ form.analysis_notes.id_for_label }}");
+                        if (el) {
+                            el.classList.add("analysis-notes-textarea");
+                        }
+                    })();
+                </script>
+
+                {% if form.analysis_notes.help_text %}
+                    <div class="form-text">{{ form.analysis_notes.help_text }}</div>
+                {% endif %}
+                {% for error in form.analysis_notes.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Save notes</button>
+                    <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
+                       class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
-
-<form method="post">
-    {% csrf_token %}
-    <div class="mb-3">
-        {{ form.analysis_notes.label_tag }}
-        {{ form.analysis_notes }}
-        {% if form.analysis_notes.help_text %}
-            <div class="form-text">{{ form.analysis_notes.help_text }}</div>
-        {% endif %}
-        {% for error in form.analysis_notes.errors %}
-            <div class="text-danger small">{{ error }}</div>
-        {% endfor %}
-    </div>
-
-    <button type="submit" class="btn btn-primary">Save notes</button>
-    <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
-       class="btn btn-secondary">Cancel</a>
-</form>
 {% endblock %}

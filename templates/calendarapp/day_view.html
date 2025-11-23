@@ -1,32 +1,45 @@
 {% extends "calendarapp/base.html" %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <h2 class="mb-0">Events on {{ date|date:"F j, Y" }}</h2>
-        <small class="text-muted">All sales happening this day</small>
+<div class="main-shell mx-auto">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h2 class="mb-0">Events on {{ date|date:"F j, Y" }}</h2>
+            <div class="page-subtitle">All sales happening this day</div>
+        </div>
+        <a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary">
+            ← Back to month
+        </a>
     </div>
-    <a href="{% url 'calendarapp:month_view' %}" class="btn btn-sm btn-outline-secondary">
-        ← Back to month
-    </a>
-</div>
 
-{% if events %}
-    <div class="list-group">
+    {% if events %}
         {% for event in events %}
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between">
+            <div class="event-card">
+                <div class="d-flex justify-content-between align-items-start flex-wrap event-card-header">
                     <div>
-                        <h5 class="mb-1">{{ event.title }}</h5>
-                        <small class="text-muted">
+                        <div class="event-card-title">{{ event.title }}</div>
+                        <div class="event-card-meta">
                             {{ event.auction_house }}
                             {% if event.location %} · {{ event.location }}{% endif %}
-                        </small>
+                        </div>
                     </div>
                     <div class="text-end">
-                        <span class="badge bg-info text-dark mb-1">
-                            {{ event.get_status_display }}
-                        </span>
+                        <div class="mb-1">
+                            <span class="badge rounded-pill
+                                {% if event.status == 'researching' %} bg-secondary
+                                {% elif event.status == 'preparing' %} bg-warning text-dark
+                                {% elif event.status == 'bidding' %} bg-success
+                                {% elif event.status == 'passed' %} bg-light text-muted
+                                {% endif %}
+                            ">
+                                {{ event.get_status_display }}
+                            </span>
+                            {% if event.has_analysis %}
+                                <span class="badge rounded-pill bg-success-subtle text-success border border-success-subtle ms-1">
+                                    Notes ✓
+                                </span>
+                            {% endif %}
+                        </div>
                         <div class="small text-muted">
                             {% if event.end_date and event.end_date != event.start_date %}
                                 {{ event.start_date|date:"M j" }} – {{ event.end_date|date:"M j" }}
@@ -36,12 +49,16 @@
                         </div>
                     </div>
                 </div>
+
                 {% if event.notes %}
-                    <p class="mb-1 mt-2">{{ event.notes|linebreaksbr }}</p>
+                    <p class="mt-3 mb-2 small">
+                        {{ event.notes|linebreaksbr }}
+                    </p>
                 {% endif %}
-                <div class="mt-2 d-flex flex-wrap gap-2">
+
+                <div class="d-flex flex-wrap gap-2 event-card-actions mt-2">
                     <a href="{% url 'calendarapp:event_edit' event.pk %}" class="btn btn-sm btn-outline-primary">
-                        Edit
+                        Edit sale
                     </a>
                     <a href="{% url 'calendarapp:event_delete' event.pk %}" class="btn btn-sm btn-outline-danger">
                         Delete
@@ -54,11 +71,10 @@
                         {% endif %}
                     </a>
                 </div>
-
             </div>
         {% endfor %}
-    </div>
-{% else %}
-    <p class="text-muted">No sales on this day yet.</p>
-{% endif %}
+    {% else %}
+        <p class="text-muted">No sales on this day yet.</p>
+    {% endif %}
+</div>
 {% endblock %}
