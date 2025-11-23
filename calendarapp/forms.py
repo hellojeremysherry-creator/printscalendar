@@ -47,3 +47,21 @@ class SaleEventForm(forms.ModelForm):
             "status",
             "notes",
         ]
+
+
+# NEW: form just for analysis_notes
+class SaleEventAnalysisForm(forms.ModelForm):
+    class Meta:
+        model = SaleEvent
+        fields = ["analysis_notes"]
+        widgets = {
+            "analysis_notes": forms.Textarea(
+                attrs={
+                    "rows": 28,
+                    "class": "form-control font-monospace",
+                }
+            )
+        }
+        labels = {
+            "analysis_notes": "Research / Arbitrage Dossier",
+        }

@@ -11,5 +11,10 @@ urlpatterns = [
     path('event/<int:pk>/delete/', views.SaleEventDeleteView.as_view(), name='event_delete'),
 
     # NEW:
+    # existing API route
     path("api/create-from-page/", views.create_event_from_page, name="create_from_page"),
+
+    # NEW: analysis editor
+    path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
+         name="event_analysis"),
 ]

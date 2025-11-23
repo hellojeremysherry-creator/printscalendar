@@ -76,6 +76,7 @@
                                                 {% if st == 'passed' %}status-passed{% endif %}
                                             "></span>
                                             {{ event.title|truncatechars:26 }}
+                                            {% if event.has_analysis %} ✏️{% endif %}
                                         </div>
                                     {% endwith %}
                                 {% empty %}

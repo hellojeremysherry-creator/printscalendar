@@ -9,9 +9,128 @@ from django.utils.dateparse import parse_date
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.urls import reverse
 
-from .forms import SaleEventForm
+from .forms import SaleEventForm, SaleEventAnalysisForm
 from .models import SaleEvent
+
+DEFAULT_ANALYSIS_TEMPLATE = """## Acquisition Criteria
+
+- [ ] Edition size ≤150 (or justified by strong market history)
+- [ ] Clear arbitrage (geographic, cataloging error, weak photography, variant mispricing, etc.)
+
+---
+
+## 1️⃣ Lot Extraction
+
+- Auction: {{ event.title }} ({{ event.auction_house }} — {{ event.location }})
+- Catalogue URL(s):
+- Buyer’s premium schedule:
+
+Lots of interest:
+- Lot ___ – Artist, *Title*, year, medium, edition, size, signature, condition.
+- Lot ___ – ...
+
+---
+
+## 2️⃣ Value Calibration (Comps & Fair Market Range)
+
+For each lot:
+
+- Recent comps:
+  - [Auction House, Date] — Price, details
+  - ...
+- FX assumptions:
+- Fair value range:
+  - LOW  : $
+  - MID  : $
+  - HIGH : $
+- Notes vs. house estimate:
+
+---
+
+## 3️⃣ Cost Modeling
+
+Formula: All-in = Hammer × (1 + BP) + Tax + Shipping/Insurance/Handling
+
+- Tax assumption:
+- Shipping estimate:
+- Storage / framing (if any):
+- Unknowns / VERIFY:
+
+---
+
+## 4️⃣ Arbitrage Analysis (Resale Optimization)
+
+For each viable lot:
+
+- Optimal venue:
+- Alternates:
+- Price band:
+- Expected liquidity window:
+- Rationale:
+
+Score:
+- Arbitrage Score (0–100):
+- Value Realization (±% vs estimate):
+- Liquidity Tier: A / B / C
+
+---
+
+## 5️⃣ Watchlist
+
+Lots to watch contingent on:
+- Condition checks:
+- Bidding patterns:
+- Catalogue discrepancies:
+- Timing:
+
+---
+
+## 6️⃣ Execution Playbook
+
+- Bidding strategy:
+- Documentation prep:
+- Post-acquisition routing:
+- Conservation / framing:
+- Consignment target(s) + fee assumptions:
+
+---
+
+## Integrity Notes
+
+- Data sources:
+- Unknowns flagged:
+- Risks / red flags:
+"""
+
+
+class SaleEventAnalysisUpdateView(generic.UpdateView):
+    """
+    Dedicated page to write long-form research notes for a single event.
+    If analysis_notes is empty, we seed it with DEFAULT_ANALYSIS_TEMPLATE.
+    """
+    model = SaleEvent
+    form_class = SaleEventAnalysisForm
+    template_name = "calendarapp/event_analysis_form.html"
+
+    def get_initial(self):
+        initial = super().get_initial()
+        if not self.object.analysis_notes:
+            initial["analysis_notes"] = DEFAULT_ANALYSIS_TEMPLATE
+        return initial
+
+    def get_success_url(self):
+        # After saving, drop back to the day view for that event’s start date
+        event = self.object
+        return reverse(
+            "calendarapp:day_view",
+            kwargs={
+                "year": event.start_date.year,
+                "month": event.start_date.month,
+                "day": event.start_date.day,
+            },
+        )
 
 
 class MonthView(generic.TemplateView):
