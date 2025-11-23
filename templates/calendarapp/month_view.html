@@ -16,8 +16,9 @@
 
 <div class="row">
     <!-- Calendar -->
-    <div class="col-lg-8 mb-4">
-        <table class="table table-bordered bg-white align-middle">
+    <div class="col-12 col-xl-8 mb-4">
+        <div class="table-responsive">
+            <table class="table table-bordered bg-white align-middle mb-2">
             <thead class="table-light text-center">
             <tr>
                 <th>Mon</th>
@@ -88,8 +89,8 @@
                 </tr>
             {% endfor %}
             </tbody>
-        </table>
-
+            </table>
+        </div>
         <!-- Legend -->
         <div class="d-flex flex-wrap gap-3 small text-muted">
             <div><span class="status-dot status-researching"></span>Researching</div>
@@ -103,7 +104,7 @@
     </div>
 
     <!-- Sidebar: upcoming events -->
-    <div class="col-lg-4">
+    <div class="col-12 col-xl-4">
         <div class="card">
             <div class="card-body">
                 <div class="sidebar-heading mb-2">Upcoming sales</div>
