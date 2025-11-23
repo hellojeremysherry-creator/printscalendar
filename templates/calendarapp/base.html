@@ -176,38 +176,6 @@
         .day-link:hover {
             background-color: rgba(13, 110, 253, 0.06);  /* soft hover */
         }
-    .analysis-preview {
-        background-color: #ffffff;
-        border-radius: 0.75rem;
-        padding: 1rem 1.1rem;
-        box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
-        max-height: 70vh;
-        overflow-y: auto;
-        font-size: 0.9rem;
-    }
-
-    .analysis-preview h1,
-    .analysis-preview h2,
-    .analysis-preview h3 {
-        margin-top: 1rem;
-        margin-bottom: 0.5rem;
-        font-weight: 600;
-    }
-
-    .analysis-preview p,
-    .analysis-preview ul,
-    .analysis-preview ol {
-        margin-bottom: 0.5rem;
-    }
-
-    .analysis-preview ul,
-    .analysis-preview ol {
-        padding-left: 1.25rem;
-    }
-
-    .analysis-preview hr {
-        margin: 0.75rem 0;
-    }
     </style>
 
 </head>
@@ -226,7 +194,5 @@
 <div class="container mb-4">
     {% block content %}{% endblock %}
 </div>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-
 </body>
 </html>
