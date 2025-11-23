@@ -5,7 +5,6 @@ from django.views import generic
 from django.utils import timezone
 from .models import SaleEvent
 from .forms import SaleEventForm
-import dateutil
 import requests
 from requests.exceptions import HTTPError
 from bs4 import BeautifulSoup
