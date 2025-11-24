@@ -200,6 +200,23 @@
                 "Liberation Mono", "Courier New", monospace;
             font-size: 0.85rem;
         }
+        .analysis-notes-rendered {
+            white-space: normal;           /* break long paragraphs normally */
+            word-wrap: break-word;         /* break long words/paths */
+            overflow-wrap: break-word;     /* modern version */
+            max-width: 100%;               /* prevent container overflow */
+        }
+        .analysis-notes-rendered pre,
+        .analysis-notes-rendered code {
+            white-space: pre-wrap;         /* wrap inside code blocks too */
+            word-break: break-word;
+        }
+
+        .analysis-notes-rendered table {
+            width: 100%;
+            display: block;
+            overflow-x: auto;       /* allows scrolling for wide tables */
+        }
     </style>
 
 </head>
