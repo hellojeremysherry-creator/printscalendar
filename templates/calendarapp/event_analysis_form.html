@@ -90,17 +90,113 @@
                     </span>
                 </div>
 
-                {{ form.analysis_notes.as_widget|safe }}
+                {# Mode toggle #}
+                <div class="mb-2 d-flex gap-2">
+                    <button type="button"
+                            id="analysis-mode-edit"
+                            class="btn btn-sm btn-outline-secondary active">
+                        ✏️ Edit
+                    </button>
+                    <button type="button"
+                            id="analysis-mode-preview"
+                            class="btn btn-sm btn-outline-secondary">
+                        👁 Preview
+                    </button>
+                </div>
 
-                {# Add our styling class to the textarea #}
+                {# Edit mode: textarea #}
+                <div id="analysis-editor-wrapper">
+                    {{ form.analysis_notes.as_widget|safe }}
+                </div>
+
+                {# Preview mode: rendered markdown #}
+                <div id="analysis-preview-wrapper"
+                     class="analysis-notes-rendered border bg-white rounded p-3 d-none">
+                    <div class="text-muted small">
+                        Preview will appear here. Switch back to “Edit” to keep typing.
+                    </div>
+                </div>
+
+                {% if form.analysis_notes.help_text %}
+                    <div class="form-text">{{ form.analysis_notes.help_text }}</div>
+                {% endif %}
+                {% for error in form.analysis_notes.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+
+                {# Scripts: add styling + preview behavior #}
+                <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
                 <script>
                     (function () {
-                        const el = document.getElementById("{{ form.analysis_notes.id_for_label }}");
-                        if (el) {
-                            el.classList.add("analysis-notes-textarea");
+                        const textareaId = "{{ form.analysis_notes.id_for_label }}";
+                        const textarea = document.getElementById(textareaId);
+                        const editorWrapper = document.getElementById("analysis-editor-wrapper");
+                        const previewWrapper = document.getElementById("analysis-preview-wrapper");
+                        const btnEdit = document.getElementById("analysis-mode-edit");
+                        const btnPreview = document.getElementById("analysis-mode-preview");
+
+                        if (textarea) {
+                            textarea.classList.add("analysis-notes-textarea");
                         }
+
+                        function setMode(mode) {
+                            const inEdit = (mode === "edit");
+
+                            if (editorWrapper) {
+                                editorWrapper.classList.toggle("d-none", !inEdit);
+                            }
+                            if (previewWrapper) {
+                                previewWrapper.classList.toggle("d-none", inEdit);
+                            }
+
+                            if (btnEdit && btnPreview) {
+                                btnEdit.classList.toggle("btn-outline-secondary", !inEdit);
+                                btnEdit.classList.toggle("btn-secondary", inEdit);
+                                btnEdit.classList.toggle("active", inEdit);
+
+                                btnPreview.classList.toggle("btn-outline-secondary", inEdit);
+                                btnPreview.classList.toggle("btn-secondary", !inEdit);
+                                btnPreview.classList.toggle("active", !inEdit);
+                            }
+                        }
+
+                        function renderPreview() {
+                            if (!textarea || !previewWrapper) return;
+                            const raw = textarea.value || "";
+                            try {
+                                previewWrapper.innerHTML = window.marked.parse(raw);
+                            } catch (e) {
+                                previewWrapper.innerText = raw;
+                            }
+                        }
+
+                        if (btnEdit) {
+                            btnEdit.addEventListener("click", function () {
+                                setMode("edit");
+                            });
+                        }
+
+                        if (btnPreview) {
+                            btnPreview.addEventListener("click", function () {
+                                renderPreview();
+                                setMode("preview");
+                            });
+                        }
+
+                        // Optional: live-update preview while visible
+                        if (textarea) {
+                            textarea.addEventListener("input", function () {
+                                if (!previewWrapper.classList.contains("d-none")) {
+                                    renderPreview();
+                                }
+                            });
+                        }
+
+                        // Default mode: edit
+                        setMode("edit");
                     })();
                 </script>
+
 
                 {% if form.analysis_notes.help_text %}
                     <div class="form-text">{{ form.analysis_notes.help_text }}</div>
