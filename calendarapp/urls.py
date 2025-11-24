@@ -15,18 +15,6 @@ urlpatterns = [
     path("api/create-from-page/", views.create_event_from_page, name="create_from_page"),
 
     # NEW: analysis editor
-    # path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
-    #      name="event_analysis"),
-
-    # NEW: analysis viewer + editor
-    path(
-        "event/<int:pk>/analysis/",
-        views.SaleEventAnalysisDetailView.as_view(),
-        name="event_analysis",
-    ),
-    path(
-        "event/<int:pk>/analysis/edit/",
-        views.SaleEventAnalysisUpdateView.as_view(),
-        name="event_analysis_edit",
-    ),
+    path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
+         name="event_analysis"),
 ]

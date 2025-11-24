@@ -1,16 +1,15 @@
 import calendar
 import json
 from datetime import date
-import markdown
-from django.utils.safestring import mark_safe
+
 from django.http import JsonResponse
-from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.urls import reverse
 
 from .forms import SaleEventForm, SaleEventAnalysisForm
 from .models import SaleEvent
@@ -104,39 +103,6 @@ Lots to watch contingent on:
 - Unknowns flagged:
 - Risks / red flags:
 """
-
-class SaleEventAnalysisDetailView(generic.DetailView):
-    """
-    Read-only view that renders analysis_notes as HTML (from Markdown).
-    """
-    model = SaleEvent
-    template_name = "calendarapp/event_analysis_detail.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        raw_notes = self.object.analysis_notes or ""
-
-        # Convert Markdown -> HTML
-        rendered = markdown.markdown(
-            raw_notes,
-            extensions=[
-                "extra",       # tables, etc.
-                "sane_lists",
-                "smarty",      # nicer quotes/dashes
-            ],
-        )
-        context["analysis_html"] = mark_safe(rendered)
-        return context
-
-    def get_initial(self):
-        initial = super().get_initial()
-        if not self.object.analysis_notes:
-            initial["analysis_notes"] = DEFAULT_ANALYSIS_TEMPLATE
-        return initial
-
-    def get_success_url(self):
-        # After saving, go to the rendered Markdown view
-        return reverse("calendarapp:event_analysis", kwargs={"pk": self.object.pk})
 
 
 class SaleEventAnalysisUpdateView(generic.UpdateView):

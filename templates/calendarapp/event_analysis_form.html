@@ -13,21 +13,14 @@
                 · {{ object.start_date|date:"M j, Y" }}
             </div>
         </div>
-
-        <div class="d-flex gap-2">
-            <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
-               class="btn btn-sm btn-outline-secondary">
-                ← Back to day
-            </a>
-            <a href="{% url 'calendarapp:event_analysis_edit' object.pk %}"
-               class="btn btn-sm btn-primary">
-                ✏️ Edit notes
-            </a>
-        </div>
+        <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
+           class="btn btn-sm btn-outline-secondary">
+            ← Back to day
+        </a>
     </div>
 
     <div class="row g-4">
-        <!-- Sidebar with event context (same as in form template) -->
+        <!-- Sidebar with event context -->
         <div class="col-lg-4">
             <div class="analysis-sidebar-card sticky-top" style="top: 5rem;">
                 <div class="label mb-2">Sale overview</div>
@@ -84,35 +77,44 @@
             </div>
         </div>
 
-        <!-- Main rendered notes -->
+        <!-- Main editor -->
         <div class="col-lg-8">
-            {% if object.analysis_notes %}
-                <div class="card">
-                    <div class="card-body">
-                        <div class="mb-2 d-flex justify-content-between align-items-center">
-                            <div class="fw-semibold">Research / Arbitrage Dossier</div>
-                            <div class="small text-muted">
-                                Markdown was used to create this — headings, bullet lists, etc.
-                            </div>
-                        </div>
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-2 d-flex justify-content-between align-items-center">
+                    <label class="form-label mb-0" for="{{ form.analysis_notes.id_for_label }}">
+                        {{ form.analysis_notes.label }}
+                    </label>
+                    <span class="text-muted small">
+                        Markdown-style headings and bullet points work well here.
+                    </span>
+                </div>
 
-                        <div class="analysis-notes-rendered">
-                            {{ analysis_html|safe }}
-                        </div>
-                    </div>
+                {{ form.analysis_notes.as_widget|safe }}
+
+                {# Add our styling class to the textarea #}
+                <script>
+                    (function () {
+                        const el = document.getElementById("{{ form.analysis_notes.id_for_label }}");
+                        if (el) {
+                            el.classList.add("analysis-notes-textarea");
+                        }
+                    })();
+                </script>
+
+                {% if form.analysis_notes.help_text %}
+                    <div class="form-text">{{ form.analysis_notes.help_text }}</div>
+                {% endif %}
+                {% for error in form.analysis_notes.errors %}
+                    <div class="text-danger small">{{ error }}</div>
+                {% endfor %}
+
+                <div class="mt-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-primary">Save notes</button>
+                    <a href="{% url 'calendarapp:day_view' object.start_date.year object.start_date.month object.start_date.day %}"
+                       class="btn btn-secondary">Cancel</a>
                 </div>
-            {% else %}
-                <div class="alert alert-light border">
-                    <div class="fw-semibold mb-1">No research notes yet</div>
-                    <p class="mb-2 small text-muted">
-                        You can start from the default analysis template and fill it in.
-                    </p>
-                    <a href="{% url 'calendarapp:event_analysis_edit' object.pk %}"
-                       class="btn btn-sm btn-primary">
-                        Start writing notes
-                    </a>
-                </div>
-            {% endif %}
+            </form>
         </div>
     </div>
 </div>
