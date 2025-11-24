@@ -117,13 +117,6 @@
                     </div>
                 </div>
 
-                {% if form.analysis_notes.help_text %}
-                    <div class="form-text">{{ form.analysis_notes.help_text }}</div>
-                {% endif %}
-                {% for error in form.analysis_notes.errors %}
-                    <div class="text-danger small">{{ error }}</div>
-                {% endfor %}
-
                 {# Scripts: add styling + preview behavior #}
                 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
                 <script>
