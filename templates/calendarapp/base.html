@@ -183,6 +183,41 @@
             margin-bottom: 0.5rem;
             font-weight: 600;
         }
+        /* Calendar grid makes every day the same size */
+        .calendar-table {
+            table-layout: fixed;         /* equal column widths */
+            width: 100%;
+        }
+
+        .calendar-table th,
+        .calendar-table td {
+            width: calc(100% / 7);
+        }
+
+        /* fix row / cell height */
+        .calendar-day-cell {
+            padding: 0;                  /* padding goes inside .day-link instead */
+            height: 130px;               /* tweak this number to taste */
+        }
+
+        /* fill the cell and allow internal scroll */
+        .calendar-day-cell .day-link {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 0.35rem;
+        }
+
+        /* header (date + count) stays on top */
+        .day-header {
+            flex: 0 0 auto;
+        }
+
+        /* events area takes the rest and can scroll if too many */
+        .day-events {
+            flex: 1 1 auto;
+            overflow-y: auto;            /* or hidden if you prefer clipping */
+        }
 
         .analysis-notes-rendered p,
         .analysis-notes-rendered ul,

@@ -18,7 +18,7 @@
     <!-- Calendar -->
     <div class="col-12 col-xl-8 mb-4">
         <div class="table-responsive">
-            <table class="table table-bordered bg-white align-middle mb-2">
+            <table class="table table-bordered bg-white align-middle mb-2 calendar-table">
             <thead class="table-light text-center">
             <tr>
                 <th>Mon</th>
@@ -48,10 +48,11 @@
                                 {% with classes=classes|add:" day-cell-today" %}
                                 {% endwith %}
                             {% endif %}
-                            <td class="{{ classes }}" style="font-size: 0.85rem;">
+                            <td class="{{ classes }} calendar-day-cell" style="font-size: 0.85rem;">
                                 <a href="{% url 'calendarapp:day_view' day.year day.month day.day %}"
                                    class="day-link {% if day.month != month %}text-muted{% endif %}">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
+
+                                    <div class="day-header d-flex justify-content-between align-items-center mb-1">
                                         <span class="fw-semibold">
                                             {{ day.day }}
                                         </span>
@@ -62,31 +63,34 @@
                                         {% endif %}
                                     </div>
 
-                                    {% for event in events %}
-                                        {% with event.status as st %}
-                                            <div class="event-chip mt-1
-                                                {% if st == 'researching' %}event-chip-researching{% endif %}
-                                                {% if st == 'preparing' %}event-chip-preparing{% endif %}
-                                                {% if st == 'bidding' %}event-chip-bidding{% endif %}
-                                                {% if st == 'passed' %}event-chip-passed{% endif %}
-                                            ">
-                                                <span class="status-dot
-                                                    {% if st == 'researching' %}status-researching{% endif %}
-                                                    {% if st == 'preparing' %}status-preparing{% endif %}
-                                                    {% if st == 'bidding' %}status-bidding{% endif %}
-                                                    {% if st == 'passed' %}status-passed{% endif %}
-                                                "></span>
-                                                {{ event.title|truncatechars:26 }}
-                                                {% if event.has_analysis %} ✏️{% endif %}
+                                    <div class="day-events">
+                                        {% for event in events %}
+                                            {% with event.status as st %}
+                                                <div class="event-chip mt-1
+                                                    {% if st == 'researching' %}event-chip-researching{% endif %}
+                                                    {% if st == 'preparing' %}event-chip-preparing{% endif %}
+                                                    {% if st == 'bidding' %}event-chip-bidding{% endif %}
+                                                    {% if st == 'passed' %}event-chip-passed{% endif %}
+                                                ">
+                                                    <span class="status-dot
+                                                        {% if st == 'researching' %}status-researching{% endif %}
+                                                        {% if st == 'preparing' %}status-preparing{% endif %}
+                                                        {% if st == 'bidding' %}status-bidding{% endif %}
+                                                        {% if st == 'passed' %}status-passed{% endif %}
+                                                    "></span>
+                                                    {{ event.title|truncatechars:26 }}
+                                                    {% if event.has_analysis %} ✏️{% endif %}
+                                                </div>
+                                            {% endwith %}
+                                        {% empty %}
+                                            <div class="text-muted" style="font-size: 0.7rem;">
+                                                &nbsp;
                                             </div>
-                                        {% endwith %}
-                                    {% empty %}
-                                        <div class="text-muted" style="font-size: 0.7rem;">
-                                            &nbsp;
-                                        </div>
-                                    {% endfor %}
+                                        {% endfor %}
+                                    </div>
                                 </a>
                             </td>
+
                         {% endwith %}
                     {% endfor %}
                 </tr>
