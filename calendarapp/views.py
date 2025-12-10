@@ -1,16 +1,13 @@
 import calendar
-import json
 from datetime import date
+
 from django.conf import settings
-from django.http import JsonResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils import timezone
-from django.utils.dateparse import parse_date
 from django.views import generic
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST
+
 from .forms import SaleEventForm, SaleEventAnalysisForm
 from .models import SaleEvent
 
@@ -250,62 +247,6 @@ class SaleEventDeleteView(generic.DeleteView):
     model = SaleEvent
     template_name = 'calendarapp/event_confirm_delete.html'
     success_url = reverse_lazy('calendarapp:month_view')
-
-
-@csrf_exempt
-@require_POST
-def create_event_from_page(request):
-    """
-    Create a SaleEvent from JSON posted by a bookmarklet running in the browser
-    on the auction site page.
-    Expected JSON:
-      {
-        "url": "...",
-        "title": "...",
-        "auction_house": "...",
-        "location": "...",
-        "start_date": "YYYY-MM-DD",
-        "notes": "optional extra notes"
-      }
-    """
-    try:
-        data = json.loads(request.body.decode("utf-8"))
-    except Exception:
-        return JsonResponse({"error": "Invalid JSON"}, status=400)
-
-    title = (data.get("title") or "").strip()
-    start_date_str = (data.get("start_date") or "").strip()
-
-    if not title:
-        return JsonResponse({"error": "Missing title"}, status=400)
-
-    start_date = parse_date(start_date_str) or timezone.localdate()
-
-    notes_parts = []
-    if data.get("notes"):
-        notes_parts.append(data["notes"])
-    if data.get("url"):
-        notes_parts.append(f"Source: {data['url']}")
-    notes = "\n\n".join(notes_parts)
-
-    event = SaleEvent.objects.create(
-        title=title,
-        auction_house=data.get("auction_house", "")[:200],
-        location=data.get("location", "")[:200],
-        start_date=start_date,
-        end_date=None,
-        status="researching",
-        notes=notes,
-    )
-
-    return JsonResponse(
-        {
-            "ok": True,
-            "id": event.id,
-            "title": event.title,
-            "start_date": str(event.start_date),
-        }
-    )
 
 
 def password_gate(request):
