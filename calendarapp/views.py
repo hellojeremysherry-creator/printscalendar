@@ -1,16 +1,16 @@
 import calendar
 import json
 from datetime import date
-
+from django.conf import settings
 from django.http import JsonResponse
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views import generic
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.urls import reverse
-
 from .forms import SaleEventForm, SaleEventAnalysisForm
 from .models import SaleEvent
 
@@ -306,3 +306,51 @@ def create_event_from_page(request):
             "start_date": str(event.start_date),
         }
     )
+
+
+# def artprice_artist_search(request):
+#     q = (request.GET.get("q") or "").strip()
+#     if not q:
+#         return render(request, "calendarapp/artprice_search.html", {"results": None})
+#
+#     # Pseudo-endpoint – replace with their real one if they give you docs
+#     endpoint = "https://api.artprice.com/v1/search/artist"
+#     headers = {"Authorization": f"Bearer {settings.ARTPRICE_API_TOKEN}"}
+#     params = {"query": q}
+#
+#     resp = requests.get(endpoint, headers=headers, params=params, timeout=10)
+#     resp.raise_for_status()
+#
+#     data = resp.json()  # whatever shape they define
+#     return render(request, "calendarapp/artprice_search.html", {"results": data, "q": q})
+
+
+def password_gate(request):
+    """
+    Very simple one-field form asking for the site password.
+
+    If PASSWORD_PROTECT_ENABLED is False, we just bounce them to /
+    so dev environments are not stuck here.
+    """
+    if not getattr(settings, "PASSWORD_PROTECT_ENABLED", False):
+        return redirect("/")
+
+    error = None
+
+    if request.method == "POST":
+        submitted = (request.POST.get("password") or "").strip()
+        expected = getattr(settings, "PASSWORD_PROTECT_PASSWORD", "")
+
+        if expected and submitted == expected:
+            # Correct password – unlock this session
+            request.session["site_unlocked"] = True
+
+            # Redirect to the originally requested URL if we stored it
+            next_url = request.session.pop("site_next", None)
+            if not next_url:
+                next_url = reverse("calendarapp:month_view")
+            return redirect(next_url)
+        else:
+            error = "Incorrect password. Please try again."
+
+    return render(request, "calendarapp/password_gate.html", {"error": error})

@@ -4,6 +4,13 @@ import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# --- Password protection (simple whole-site gate) ---
+# PASSWORD_PROTECT_ENABLED = os.getenv("PASSWORD_PROTECT_ENABLED", "False") == "True"
+# PASSWORD_PROTECT_PASSWORD = os.getenv("PASSWORD_PROTECT_PASSWORD", "")
+
+PASSWORD_PROTECT_ENABLED = True
+PASSWORD_PROTECT_PASSWORD = "superSecretAuctionClub!"
+
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-later')
 
 DEBUG = os.getenv("DEBUG", "True") == "True"

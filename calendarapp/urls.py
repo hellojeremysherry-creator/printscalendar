@@ -17,4 +17,5 @@ urlpatterns = [
     # NEW: analysis editor
     path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
          name="event_analysis"),
+
 ]
