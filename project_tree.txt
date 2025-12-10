@@ -1172,6 +1172,7 @@ printscalendar
 │       │   
 │       │           <!-- Main editor -->
 │       │           <div class="col-lg-8">
+│       │   
 │       │               <form method="post">
 │       │                   {% csrf_token %}
 │       │                   <div class="mb-2 d-flex justify-content-between align-items-center">
@@ -1210,12 +1211,26 @@ printscalendar
 │       │                       </div>
 │       │                   </div>
 │       │   
+│       │                   {# HIDDEN PDF CONTAINER (used only for html2pdf) #}
+│       │                   <div id="analysis-pdf-root" class="d-none">
+│       │                       <h1 style="font-size: 1.3rem; margin-bottom: 0.25rem;">
+│       │                           Research Notes: {{ object.title }}
+│       │                       </h1>
+│       │                       <p style="font-size: 0.85rem; color: #555; margin-bottom: 0.75rem;">
+│       │                           {{ object.auction_house }}
+│       │                           {% if object.location %} · {{ object.location }}{% endif %}
+│       │                           · {{ object.start_date|date:"M j, Y" }}
+│       │                       </p>
+│       │                       <hr style="margin: 0.5rem 0 1rem 0;">
+│       │                       <div id="analysis-pdf-body"></div>
+│       │                   </div>
+│       │   
 │       │                   {# Scripts: add styling + preview behavior #}
 │       │                   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 │       │                   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-│       │                       integrity="sha512-YcsIPGqvE4R3ThvwP6E6CfxaX92Z9R3g8bvPpJGSMu7x5b4C5HgdGXN53BJ38qRAjPR9U1FVLtZLkN6D8v5xkw=="
-│       │                       crossorigin="anonymous"
-│       │                       referrerpolicy="no-referrer"></script>
+│       │                           integrity="sha512-YcsIPGqvE4R3ThvwP6E6CfxaX92Z9R3g8bvPpJGSMu7x5b4C5HgdGXN53BJ38qRAjPR9U1FVLtZLkN6D8v5xkw=="
+│       │                           crossorigin="anonymous"
+│       │                           referrerpolicy="no-referrer"></script>
 │       │                   <script>
 │       │                       (function () {
 │       │                           const textareaId = "{{ form.analysis_notes.id_for_label }}";
@@ -1285,7 +1300,7 @@ printscalendar
 │       │                           // Default mode: edit
 │       │                           setMode("edit");
 │       │   
-│       │                           // ---- PDF download wiring ----
+│       │                           // ---- PDF download wiring (NEW) ----
 │       │                           const btnDownload = document.getElementById("download-analysis-pdf");
 │       │                           const eventTitle = "{{ object.title|escapejs }}";
 │       │   
@@ -1301,33 +1316,55 @@ printscalendar
 │       │   
 │       │                           if (btnDownload && typeof html2pdf !== "undefined") {
 │       │                               btnDownload.addEventListener("click", function () {
-│       │                                   if (!textarea || !previewWrapper) return;
+│       │                                   if (!textarea) return;
 │       │   
-│       │                                   // keep preview in sync
-│       │                                   renderPreview();
-│       │                                   setMode("preview");
+│       │                                   // 1) Get raw notes
+│       │                                   const raw = textarea.value || "";
 │       │   
-│       │                                   setTimeout(function () {
-│       │                                       const fileName = "Research-" + slugify(eventTitle || "sale") + ".pdf";
+│       │                                   // 2) Markdown → HTML
+│       │                                   let renderedHtml;
+│       │                                   try {
+│       │                                       renderedHtml = window.marked.parse(raw);
+│       │                                   } catch (e) {
+│       │                                       renderedHtml = raw.replace(/\n/g, "<br>");
+│       │                                   }
 │       │   
-│       │                                       const opt = {
-│       │                                           margin:       [0.5, 0.5, 0.5, 0.5],
-│       │                                           filename:     fileName,
-│       │                                           image:        { type: "jpeg", quality: 0.98 },
-│       │                                           html2canvas:  { scale: 2, useCORS: true },
-│       │                                           jsPDF:        { unit: "in", format: "letter", orientation: "portrait" }
-│       │                                       };
+│       │                                   // 3) Inject into hidden PDF container
+│       │                                   const pdfRoot = document.getElementById("analysis-pdf-root");
+│       │                                   const pdfBody = document.getElementById("analysis-pdf-body");
+│       │                                   if (!pdfRoot || !pdfBody) return;
 │       │   
-│       │                                       html2pdf()
-│       │                                           .set(opt)
-│       │                                           .from(previewWrapper)
-│       │                                           .save();
-│       │                                   }, 100);
+│       │                                   pdfBody.innerHTML = renderedHtml;
+│       │   
+│       │                                   const fileName = "Research-" + slugify(eventTitle || "sale") + ".pdf";
+│       │   
+│       │                                   const opt = {
+│       │                                       margin:      [0.5, 0.5, 0.5, 0.5],   // inches
+│       │                                       filename:    fileName,
+│       │                                       image:       { type: "jpeg", quality: 0.98 },
+│       │                                       html2canvas: { scale: 2, useCORS: true },
+│       │                                       jsPDF:       { unit: "in", format: "letter", orientation: "portrait" }
+│       │                                   };
+│       │   
+│       │                                   // Temporarily unhide for rendering (safer for some browsers)
+│       │                                   const wasHidden = pdfRoot.classList.contains("d-none");
+│       │                                   if (wasHidden) {
+│       │                                       pdfRoot.classList.remove("d-none");
+│       │                                   }
+│       │   
+│       │                                   html2pdf()
+│       │                                       .set(opt)
+│       │                                       .from(pdfRoot)
+│       │                                       .save()
+│       │                                       .then(function () {
+│       │                                           if (wasHidden) {
+│       │                                               pdfRoot.classList.add("d-none");
+│       │                                           }
+│       │                                       });
 │       │                               });
 │       │                           }
 │       │                       })();
 │       │                   </script>
-│       │   
 │       │   
 │       │                   {% if form.analysis_notes.help_text %}
 │       │                       <div class="form-text">{{ form.analysis_notes.help_text }}</div>
@@ -1565,95 +1602,4 @@ printscalendar
 │               </div>
 │           </div>
 │           {% endblock %}
-└── tree.py
-    import os
-    
-    # Directories to completely skip
-    EXCLUDED_DIRS = {'.venv', '__pycache__', '.git'}
-    
-    # Only these directories will be shown directly under the project root
-    ALLOWED_TOP_LEVEL_DIRS = {'calendarapp', 'printscalendar', 'static', 'staticfiles', 'templates'}
-    
-    # Only these file types will be shown
-    ALLOWED_FILE_EXTS = {'.py', '.html'}
-    
-    
-    def build_tree(start_path, indent="", is_root=False, lines=None):
-        if lines is None:
-            lines = []
-    
-        # List items in this directory
-        try:
-            items = sorted(os.listdir(start_path))
-        except PermissionError:
-            return lines  # skip directories we can't access
-    
-        filtered_items = []
-    
-        for item in items:
-            path = os.path.join(start_path, item)
-    
-            if os.path.isdir(path):
-                # Skip excluded directories
-                if item in EXCLUDED_DIRS:
-                    continue
-                # At the root level, only keep the allowed directories
-                if is_root and item not in ALLOWED_TOP_LEVEL_DIRS:
-                    continue
-                filtered_items.append((item, path, True))  # (name, path, is_dir=True)
-            else:
-                # Only keep .py and .html files
-                _, ext = os.path.splitext(item)
-                if ext in ALLOWED_FILE_EXTS:
-                    filtered_items.append((item, path, False))  # (name, path, is_dir=False)
-    
-        count = len(filtered_items)
-    
-        for index, (item, path, is_dir) in enumerate(filtered_items):
-            connector = "└── " if index == count - 1 else "├── "
-            lines.append(indent + connector + item)
-    
-            if is_dir:
-                # Prepare indent for children
-                extension = "    " if index == count - 1 else "│   "
-                build_tree(path, indent + extension, is_root=False, lines=lines)
-            else:
-                # Optionally include file contents:
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        content = f.read().splitlines()
-                    file_indent = indent + ("    " if index == count - 1 else "│   ")
-                    for line in content:
-                        lines.append(file_indent + line)
-                except Exception:
-                    # silently skip files we can't read
-                    pass
-    
-        return lines
-    
-    
-    def main():
-        root = "."  # change to your project path if needed
-        abs_root = os.path.abspath(root)
-    
-        # Only show the project folder name (last part of the path)
-        project_name = os.path.basename(abs_root.rstrip(os.sep)) or abs_root
-    
-        lines = [project_name]
-        lines = build_tree(abs_root, indent="", is_root=True, lines=lines)
-    
-        tree_text = "\n".join(lines)
-    
-        # Print to console
-        print(tree_text)
-    
-        # Also write to a .txt file
-        out_file = "project_tree.txt"
-        with open(out_file, "w", encoding="utf-8") as f:
-            f.write(tree_text)
-    
-        print(f"\nTree written to {out_file}")
-    
-    
-    if __name__ == "__main__":
-        main()
+└─
