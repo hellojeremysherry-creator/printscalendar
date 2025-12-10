@@ -308,23 +308,6 @@ def create_event_from_page(request):
     )
 
 
-# def artprice_artist_search(request):
-#     q = (request.GET.get("q") or "").strip()
-#     if not q:
-#         return render(request, "calendarapp/artprice_search.html", {"results": None})
-#
-#     # Pseudo-endpoint – replace with their real one if they give you docs
-#     endpoint = "https://api.artprice.com/v1/search/artist"
-#     headers = {"Authorization": f"Bearer {settings.ARTPRICE_API_TOKEN}"}
-#     params = {"query": q}
-#
-#     resp = requests.get(endpoint, headers=headers, params=params, timeout=10)
-#     resp.raise_for_status()
-#
-#     data = resp.json()  # whatever shape they define
-#     return render(request, "calendarapp/artprice_search.html", {"results": data, "q": q})
-
-
 def password_gate(request):
     """
     Very simple one-field form asking for the site password.

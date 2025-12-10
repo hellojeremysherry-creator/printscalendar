@@ -18,4 +18,7 @@ urlpatterns = [
     path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
          name="event_analysis"),
 
+    # NEW: password gate URL
+    path('access/', views.password_gate, name='password_gate'),
+
 ]
