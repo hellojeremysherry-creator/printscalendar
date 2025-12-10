@@ -18,34 +18,29 @@ class PasswordProtectionMiddleware(MiddlewareMixin):
     SESSION_KEY = "site_unlocked"
 
     def process_request(self, request):
-        # If not enabled, do nothing
         if not getattr(settings, "PASSWORD_PROTECT_ENABLED", False):
             return None
 
-        # Allow static files
         static_url = getattr(settings, "STATIC_URL", "/static/")
         if static_url and request.path.startswith(static_url):
             return None
 
-        # Allow the password page itself
+        # Use namespaced URL name
         try:
-            password_url = reverse("password_gate")
+            password_url = reverse("calendarapp:password_gate")
         except Exception:
-            password_url = "/access/"  # fallback; must match your URL pattern
+            password_url = "/access/"
+
         if request.path == password_url:
             return None
 
-        # Optionally allow /admin/ to bypass the wall:
-        # (if you *want* to lock admin too, remove this block)
         if request.path.startswith("/admin/"):
             return None
 
-        # If session is already unlocked, let them through
         if request.session.get(self.SESSION_KEY, False):
             return None
 
-        # Remember where they were trying to go
         request.session["site_next"] = request.get_full_path()
 
-        # Redirect to password gate
-        return redirect("password_gate")
+        # Redirect using the namespaced name
+        return redirect("calendarapp:password_gate")
