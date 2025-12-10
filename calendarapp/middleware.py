@@ -5,16 +5,6 @@ from django.utils.deprecation import MiddlewareMixin
 
 
 class PasswordProtectionMiddleware(MiddlewareMixin):
-    """
-    Simple whole-site password wall.
-
-    If PASSWORD_PROTECT_ENABLED is True, any request from a user who has not yet
-    provided the correct password is redirected to the password gate view.
-
-    Once the correct password is entered, we store a flag in the session and
-    allow normal access.
-    """
-
     SESSION_KEY = "site_unlocked"
 
     def process_request(self, request):
@@ -25,7 +15,10 @@ class PasswordProtectionMiddleware(MiddlewareMixin):
         if static_url and request.path.startswith(static_url):
             return None
 
-        # Use namespaced URL name
+        # 🔹 Allow favicon (and optionally robots.txt) through without gating
+        if request.path in ("/favicon.ico", "/robots.txt"):
+            return None
+
         try:
             password_url = reverse("calendarapp:password_gate")
         except Exception:
@@ -40,7 +33,8 @@ class PasswordProtectionMiddleware(MiddlewareMixin):
         if request.session.get(self.SESSION_KEY, False):
             return None
 
-        request.session["site_next"] = request.get_full_path()
+        # Remember where they were trying to go (but don't let favicon overwrite it)
+        if "site_next" not in request.session:
+            request.session["site_next"] = request.get_full_path()
 
-        # Redirect using the namespaced name
         return redirect("calendarapp:password_gate")
