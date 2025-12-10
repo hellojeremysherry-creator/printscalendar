@@ -140,13 +140,21 @@
                         referrerpolicy="no-referrer"></script>
 
                 <script>
-                (function () {
-                    const textareaId = "{{ form.analysis_notes.id_for_label }}";
+                document.addEventListener("DOMContentLoaded", function () {
+                    console.log("Analysis script loaded");
+
+                    const textareaId = "{{ form.analysis_notes.id_for_label }}";   // e.g. "id_analysis_notes"
                     const textarea = document.getElementById(textareaId);
                     const editorWrapper = document.getElementById("analysis-editor-wrapper");
                     const previewWrapper = document.getElementById("analysis-preview-wrapper");
                     const btnEdit = document.getElementById("analysis-mode-edit");
                     const btnPreview = document.getElementById("analysis-mode-preview");
+                    const btnDownload = document.getElementById("download-analysis-pdf");
+                    const eventTitle = "{{ object.title|escapejs }}";
+
+                    console.log("textareaId:", textareaId);
+                    console.log("textarea element:", textarea);
+                    console.log("download btn:", btnDownload);
 
                     if (textarea) {
                         textarea.classList.add("analysis-notes-textarea");
@@ -179,6 +187,7 @@
                         try {
                             previewWrapper.innerHTML = window.marked.parse(raw);
                         } catch (e) {
+                            console.error("Error in marked.parse:", e);
                             previewWrapper.innerText = raw;
                         }
                     }
@@ -196,7 +205,7 @@
                         });
                     }
 
-                    // Optional: live-update preview while visible
+                    // Live-update preview when visible
                     if (textarea) {
                         textarea.addEventListener("input", function () {
                             if (!previewWrapper.classList.contains("d-none")) {
@@ -205,13 +214,10 @@
                         });
                     }
 
-                    // Default mode: edit
+                    // Default to edit mode
                     setMode("edit");
 
-                    // ---- PDF download wiring ----
-                    const btnDownload = document.getElementById("download-analysis-pdf");
-                    const eventTitle = "{{ object.title|escapejs }}";
-
+                    // ---------- PDF DOWNLOAD ----------
                     function slugify(str) {
                         return (str || "")
                             .toString()
@@ -222,53 +228,66 @@
                             .toLowerCase();
                     }
 
-                    if (btnDownload) {
-                        if (typeof html2pdf !== "undefined") {
-                            btnDownload.addEventListener("click", function () {
-                                if (!textarea || !previewWrapper) return;
-
-                                // 1) Ensure preview is up-to-date with the textarea
-                                const raw = textarea.value || "";
-                                let renderedHtml;
-                                try {
-                                    renderedHtml = window.marked.parse(raw);
-                                } catch (e) {
-                                    renderedHtml = raw.replace(/\n/g, "<br>");
-                                }
-                                previewWrapper.innerHTML = renderedHtml;
-
-                                // 2) Temporarily show preview if currently hidden (so styling applies)
-                                const wasHidden = previewWrapper.classList.contains("d-none");
-                                if (wasHidden) {
-                                    previewWrapper.classList.remove("d-none");
-                                }
-
-                                const fileName = "Research-" + slugify(eventTitle || "sale") + ".pdf";
-
-                                const opt = {
-                                    margin: [0.5, 0.5, 0.5, 0.5],   // inches
-                                    filename: fileName,
-                                    image: {type: "jpeg", quality: 0.98},
-                                    html2canvas: {scale: 2, useCORS: true},
-                                    jsPDF: {unit: "in", format: "letter", orientation: "portrait"}
-                                };
-
-                                html2pdf()
-                                    .set(opt)
-                                    .from(previewWrapper)
-                                    .save()
-                                    .then(function () {
-                                        // 3) Put the preview back into its prior visibility state
-                                        if (wasHidden) {
-                                            previewWrapper.classList.add("d-none");
-                                        }
-                                    });
-                            });
-                        }
+                    if (!btnDownload) {
+                        console.warn("Download button not found in DOM");
+                        return;
                     }
-                })();
-                </script>
 
+                    btnDownload.addEventListener("click", function () {
+                        console.log("Download PDF clicked");
+
+                        if (!textarea || !previewWrapper) {
+                            console.error("Missing textarea or previewWrapper");
+                            return;
+                        }
+
+                        // 1) Render latest markdown to preview
+                        const raw = textarea.value || "";
+                        let renderedHtml;
+                        try {
+                            renderedHtml = window.marked.parse(raw);
+                        } catch (e) {
+                            console.error("Error in marked.parse during PDF render:", e);
+                            renderedHtml = raw.replace(/\n/g, "<br>");
+                        }
+                        previewWrapper.innerHTML = renderedHtml;
+
+                        // 2) Ensure preview is visible for correct styling
+                        const wasHidden = previewWrapper.classList.contains("d-none");
+                        if (wasHidden) {
+                            previewWrapper.classList.remove("d-none");
+                        }
+
+                        const fileName = "Research-" + slugify(eventTitle || "sale") + ".pdf";
+
+                        const opt = {
+                            margin:      [0.5, 0.5, 0.5, 0.5],
+                            filename:    fileName,
+                            image:       { type: "jpeg", quality: 0.98 },
+                            html2canvas: { scale: 2, useCORS: true },
+                            jsPDF:       { unit: "in", format: "letter", orientation: "portrait" }
+                        };
+
+                        if (typeof html2pdf === "undefined") {
+                            console.error("html2pdf is undefined – check that the CDN script loaded.");
+                            return;
+                        }
+
+                        html2pdf()
+                            .set(opt)
+                            .from(previewWrapper)
+                            .save()
+                            .then(function () {
+                                if (wasHidden) {
+                                    previewWrapper.classList.add("d-none");
+                                }
+                            })
+                            .catch(function (err) {
+                                console.error("Error during html2pdf:", err);
+                            });
+                    });
+                });
+                </script>
 
                 {% if form.analysis_notes.help_text %}
                     <div class="form-text">{{ form.analysis_notes.help_text }}</div>

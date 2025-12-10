@@ -1231,140 +1231,137 @@ printscalendar
 │       │                           integrity="sha512-YcsIPGqvE4R3ThvwP6E6CfxaX92Z9R3g8bvPpJGSMu7x5b4C5HgdGXN53BJ38qRAjPR9U1FVLtZLkN6D8v5xkw=="
 │       │                           crossorigin="anonymous"
 │       │                           referrerpolicy="no-referrer"></script>
+│       │   
 │       │                   <script>
-│       │                       (function () {
-│       │                           const textareaId = "{{ form.analysis_notes.id_for_label }}";
-│       │                           const textarea = document.getElementById(textareaId);
-│       │                           const editorWrapper = document.getElementById("analysis-editor-wrapper");
-│       │                           const previewWrapper = document.getElementById("analysis-preview-wrapper");
-│       │                           const btnEdit = document.getElementById("analysis-mode-edit");
-│       │                           const btnPreview = document.getElementById("analysis-mode-preview");
+│       │                   (function () {
+│       │                       const textareaId = "{{ form.analysis_notes.id_for_label }}";
+│       │                       const textarea = document.getElementById(textareaId);
+│       │                       const editorWrapper = document.getElementById("analysis-editor-wrapper");
+│       │                       const previewWrapper = document.getElementById("analysis-preview-wrapper");
+│       │                       const btnEdit = document.getElementById("analysis-mode-edit");
+│       │                       const btnPreview = document.getElementById("analysis-mode-preview");
 │       │   
-│       │                           if (textarea) {
-│       │                               textarea.classList.add("analysis-notes-textarea");
+│       │                       if (textarea) {
+│       │                           textarea.classList.add("analysis-notes-textarea");
+│       │                       }
+│       │   
+│       │                       function setMode(mode) {
+│       │                           const inEdit = (mode === "edit");
+│       │   
+│       │                           if (editorWrapper) {
+│       │                               editorWrapper.classList.toggle("d-none", !inEdit);
+│       │                           }
+│       │                           if (previewWrapper) {
+│       │                               previewWrapper.classList.toggle("d-none", inEdit);
 │       │                           }
 │       │   
-│       │                           function setMode(mode) {
-│       │                               const inEdit = (mode === "edit");
+│       │                           if (btnEdit && btnPreview) {
+│       │                               btnEdit.classList.toggle("btn-outline-secondary", !inEdit);
+│       │                               btnEdit.classList.toggle("btn-secondary", inEdit);
+│       │                               btnEdit.classList.toggle("active", inEdit);
 │       │   
-│       │                               if (editorWrapper) {
-│       │                                   editorWrapper.classList.toggle("d-none", !inEdit);
-│       │                               }
-│       │                               if (previewWrapper) {
-│       │                                   previewWrapper.classList.toggle("d-none", inEdit);
-│       │                               }
-│       │   
-│       │                               if (btnEdit && btnPreview) {
-│       │                                   btnEdit.classList.toggle("btn-outline-secondary", !inEdit);
-│       │                                   btnEdit.classList.toggle("btn-secondary", inEdit);
-│       │                                   btnEdit.classList.toggle("active", inEdit);
-│       │   
-│       │                                   btnPreview.classList.toggle("btn-outline-secondary", inEdit);
-│       │                                   btnPreview.classList.toggle("btn-secondary", !inEdit);
-│       │                                   btnPreview.classList.toggle("active", !inEdit);
-│       │                               }
+│       │                               btnPreview.classList.toggle("btn-outline-secondary", inEdit);
+│       │                               btnPreview.classList.toggle("btn-secondary", !inEdit);
+│       │                               btnPreview.classList.toggle("active", !inEdit);
 │       │                           }
+│       │                       }
 │       │   
-│       │                           function renderPreview() {
-│       │                               if (!textarea || !previewWrapper) return;
-│       │                               const raw = textarea.value || "";
-│       │                               try {
-│       │                                   previewWrapper.innerHTML = window.marked.parse(raw);
-│       │                               } catch (e) {
-│       │                                   previewWrapper.innerText = raw;
-│       │                               }
+│       │                       function renderPreview() {
+│       │                           if (!textarea || !previewWrapper) return;
+│       │                           const raw = textarea.value || "";
+│       │                           try {
+│       │                               previewWrapper.innerHTML = window.marked.parse(raw);
+│       │                           } catch (e) {
+│       │                               previewWrapper.innerText = raw;
 │       │                           }
+│       │                       }
 │       │   
-│       │                           if (btnEdit) {
-│       │                               btnEdit.addEventListener("click", function () {
-│       │                                   setMode("edit");
-│       │                               });
-│       │                           }
+│       │                       if (btnEdit) {
+│       │                           btnEdit.addEventListener("click", function () {
+│       │                               setMode("edit");
+│       │                           });
+│       │                       }
 │       │   
-│       │                           if (btnPreview) {
-│       │                               btnPreview.addEventListener("click", function () {
+│       │                       if (btnPreview) {
+│       │                           btnPreview.addEventListener("click", function () {
+│       │                               renderPreview();
+│       │                               setMode("preview");
+│       │                           });
+│       │                       }
+│       │   
+│       │                       // Optional: live-update preview while visible
+│       │                       if (textarea) {
+│       │                           textarea.addEventListener("input", function () {
+│       │                               if (!previewWrapper.classList.contains("d-none")) {
 │       │                                   renderPreview();
-│       │                                   setMode("preview");
-│       │                               });
-│       │                           }
+│       │                               }
+│       │                           });
+│       │                       }
 │       │   
-│       │                           // Optional: live-update preview while visible
-│       │                           if (textarea) {
-│       │                               textarea.addEventListener("input", function () {
-│       │                                   if (!previewWrapper.classList.contains("d-none")) {
-│       │                                       renderPreview();
-│       │                                   }
-│       │                               });
-│       │                           }
+│       │                       // Default mode: edit
+│       │                       setMode("edit");
 │       │   
-│       │                           // Default mode: edit
-│       │                           setMode("edit");
+│       │                       // ---- PDF download wiring ----
+│       │                       const btnDownload = document.getElementById("download-analysis-pdf");
+│       │                       const eventTitle = "{{ object.title|escapejs }}";
 │       │   
-│       │                           // ---- PDF download wiring (NEW) ----
-│       │                           const btnDownload = document.getElementById("download-analysis-pdf");
-│       │                           const eventTitle = "{{ object.title|escapejs }}";
+│       │                       function slugify(str) {
+│       │                           return (str || "")
+│       │                               .toString()
+│       │                               .normalize("NFKD")
+│       │                               .replace(/[^\w\s-]/g, "")
+│       │                               .trim()
+│       │                               .replace(/\s+/g, "-")
+│       │                               .toLowerCase();
+│       │                       }
 │       │   
-│       │                           function slugify(str) {
-│       │                               return (str || "")
-│       │                                   .toString()
-│       │                                   .normalize("NFKD")
-│       │                                   .replace(/[^\w\s-]/g, "")
-│       │                                   .trim()
-│       │                                   .replace(/\s+/g, "-")
-│       │                                   .toLowerCase();
-│       │                           }
-│       │   
-│       │                           if (btnDownload && typeof html2pdf !== "undefined") {
+│       │                       if (btnDownload) {
+│       │                           if (typeof html2pdf !== "undefined") {
 │       │                               btnDownload.addEventListener("click", function () {
-│       │                                   if (!textarea) return;
+│       │                                   if (!textarea || !previewWrapper) return;
 │       │   
-│       │                                   // 1) Get raw notes
+│       │                                   // 1) Ensure preview is up-to-date with the textarea
 │       │                                   const raw = textarea.value || "";
-│       │   
-│       │                                   // 2) Markdown → HTML
 │       │                                   let renderedHtml;
 │       │                                   try {
 │       │                                       renderedHtml = window.marked.parse(raw);
 │       │                                   } catch (e) {
 │       │                                       renderedHtml = raw.replace(/\n/g, "<br>");
 │       │                                   }
+│       │                                   previewWrapper.innerHTML = renderedHtml;
 │       │   
-│       │                                   // 3) Inject into hidden PDF container
-│       │                                   const pdfRoot = document.getElementById("analysis-pdf-root");
-│       │                                   const pdfBody = document.getElementById("analysis-pdf-body");
-│       │                                   if (!pdfRoot || !pdfBody) return;
-│       │   
-│       │                                   pdfBody.innerHTML = renderedHtml;
+│       │                                   // 2) Temporarily show preview if currently hidden (so styling applies)
+│       │                                   const wasHidden = previewWrapper.classList.contains("d-none");
+│       │                                   if (wasHidden) {
+│       │                                       previewWrapper.classList.remove("d-none");
+│       │                                   }
 │       │   
 │       │                                   const fileName = "Research-" + slugify(eventTitle || "sale") + ".pdf";
 │       │   
 │       │                                   const opt = {
-│       │                                       margin:      [0.5, 0.5, 0.5, 0.5],   // inches
-│       │                                       filename:    fileName,
-│       │                                       image:       { type: "jpeg", quality: 0.98 },
-│       │                                       html2canvas: { scale: 2, useCORS: true },
-│       │                                       jsPDF:       { unit: "in", format: "letter", orientation: "portrait" }
+│       │                                       margin: [0.5, 0.5, 0.5, 0.5],   // inches
+│       │                                       filename: fileName,
+│       │                                       image: {type: "jpeg", quality: 0.98},
+│       │                                       html2canvas: {scale: 2, useCORS: true},
+│       │                                       jsPDF: {unit: "in", format: "letter", orientation: "portrait"}
 │       │                                   };
-│       │   
-│       │                                   // Temporarily unhide for rendering (safer for some browsers)
-│       │                                   const wasHidden = pdfRoot.classList.contains("d-none");
-│       │                                   if (wasHidden) {
-│       │                                       pdfRoot.classList.remove("d-none");
-│       │                                   }
 │       │   
 │       │                                   html2pdf()
 │       │                                       .set(opt)
-│       │                                       .from(pdfRoot)
+│       │                                       .from(previewWrapper)
 │       │                                       .save()
 │       │                                       .then(function () {
+│       │                                           // 3) Put the preview back into its prior visibility state
 │       │                                           if (wasHidden) {
-│       │                                               pdfRoot.classList.add("d-none");
+│       │                                               previewWrapper.classList.add("d-none");
 │       │                                           }
 │       │                                       });
 │       │                               });
 │       │                           }
-│       │                       })();
+│       │                       }
+│       │                   })();
 │       │                   </script>
+│       │   
 │       │   
 │       │                   {% if form.analysis_notes.help_text %}
 │       │                       <div class="form-text">{{ form.analysis_notes.help_text }}</div>
@@ -1602,4 +1599,4 @@ printscalendar
 │               </div>
 │           </div>
 │           {% endblock %}
-└─
+└
