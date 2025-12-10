@@ -238,7 +238,7 @@ printscalendar
 │   │   
 │   │       # NEW:
 │   │       # existing API route
-│   │       path("api/create-from-page/", views.create_event_from_page, name="create_from_page"),
+│   │       # path("api/create-from-page/", views.create_event_from_page, name="create_from_page"),
 │   │   
 │   │       # NEW: analysis editor
 │   │       path("event/<int:pk>/analysis/", views.SaleEventAnalysisUpdateView.as_view(),
@@ -250,18 +250,15 @@ printscalendar
 │   │   ]
 │   └── views.py
 │       import calendar
-│       import json
 │       from datetime import date
+│       
 │       from django.conf import settings
-│       from django.http import JsonResponse
 │       from django.shortcuts import render, redirect
 │       from django.urls import reverse
 │       from django.urls import reverse_lazy
 │       from django.utils import timezone
-│       from django.utils.dateparse import parse_date
 │       from django.views import generic
-│       from django.views.decorators.csrf import csrf_exempt
-│       from django.views.decorators.http import require_POST
+│       
 │       from .forms import SaleEventForm, SaleEventAnalysisForm
 │       from .models import SaleEvent
 │       
@@ -501,62 +498,6 @@ printscalendar
 │           model = SaleEvent
 │           template_name = 'calendarapp/event_confirm_delete.html'
 │           success_url = reverse_lazy('calendarapp:month_view')
-│       
-│       
-│       @csrf_exempt
-│       @require_POST
-│       def create_event_from_page(request):
-│           """
-│           Create a SaleEvent from JSON posted by a bookmarklet running in the browser
-│           on the auction site page.
-│           Expected JSON:
-│             {
-│               "url": "...",
-│               "title": "...",
-│               "auction_house": "...",
-│               "location": "...",
-│               "start_date": "YYYY-MM-DD",
-│               "notes": "optional extra notes"
-│             }
-│           """
-│           try:
-│               data = json.loads(request.body.decode("utf-8"))
-│           except Exception:
-│               return JsonResponse({"error": "Invalid JSON"}, status=400)
-│       
-│           title = (data.get("title") or "").strip()
-│           start_date_str = (data.get("start_date") or "").strip()
-│       
-│           if not title:
-│               return JsonResponse({"error": "Missing title"}, status=400)
-│       
-│           start_date = parse_date(start_date_str) or timezone.localdate()
-│       
-│           notes_parts = []
-│           if data.get("notes"):
-│               notes_parts.append(data["notes"])
-│           if data.get("url"):
-│               notes_parts.append(f"Source: {data['url']}")
-│           notes = "\n\n".join(notes_parts)
-│       
-│           event = SaleEvent.objects.create(
-│               title=title,
-│               auction_house=data.get("auction_house", "")[:200],
-│               location=data.get("location", "")[:200],
-│               start_date=start_date,
-│               end_date=None,
-│               status="researching",
-│               notes=notes,
-│           )
-│       
-│           return JsonResponse(
-│               {
-│                   "ok": True,
-│                   "id": event.id,
-│                   "title": event.title,
-│                   "start_date": str(event.start_date),
-│               }
-│           )
 │       
 │       
 │       def password_gate(request):
@@ -1576,4 +1517,95 @@ printscalendar
 │               </div>
 │           </div>
 │           {% endblock %}
-└─
+└── tree.py
+    import os
+    
+    # Directories to completely skip
+    EXCLUDED_DIRS = {'.venv', '__pycache__', '.git'}
+    
+    # Only these directories will be shown directly under the project root
+    ALLOWED_TOP_LEVEL_DIRS = {'calendarapp', 'printscalendar', 'static', 'staticfiles', 'templates'}
+    
+    # Only these file types will be shown
+    ALLOWED_FILE_EXTS = {'.py', '.html'}
+    
+    
+    def build_tree(start_path, indent="", is_root=False, lines=None):
+        if lines is None:
+            lines = []
+    
+        # List items in this directory
+        try:
+            items = sorted(os.listdir(start_path))
+        except PermissionError:
+            return lines  # skip directories we can't access
+    
+        filtered_items = []
+    
+        for item in items:
+            path = os.path.join(start_path, item)
+    
+            if os.path.isdir(path):
+                # Skip excluded directories
+                if item in EXCLUDED_DIRS:
+                    continue
+                # At the root level, only keep the allowed directories
+                if is_root and item not in ALLOWED_TOP_LEVEL_DIRS:
+                    continue
+                filtered_items.append((item, path, True))  # (name, path, is_dir=True)
+            else:
+                # Only keep .py and .html files
+                _, ext = os.path.splitext(item)
+                if ext in ALLOWED_FILE_EXTS:
+                    filtered_items.append((item, path, False))  # (name, path, is_dir=False)
+    
+        count = len(filtered_items)
+    
+        for index, (item, path, is_dir) in enumerate(filtered_items):
+            connector = "└── " if index == count - 1 else "├── "
+            lines.append(indent + connector + item)
+    
+            if is_dir:
+                # Prepare indent for children
+                extension = "    " if index == count - 1 else "│   "
+                build_tree(path, indent + extension, is_root=False, lines=lines)
+            else:
+                # Optionally include file contents:
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        content = f.read().splitlines()
+                    file_indent = indent + ("    " if index == count - 1 else "│   ")
+                    for line in content:
+                        lines.append(file_indent + line)
+                except Exception:
+                    # silently skip files we can't read
+                    pass
+    
+        return lines
+    
+    
+    def main():
+        root = "."  # change to your project path if needed
+        abs_root = os.path.abspath(root)
+    
+        # Only show the project folder name (last part of the path)
+        project_name = os.path.basename(abs_root.rstrip(os.sep)) or abs_root
+    
+        lines = [project_name]
+        lines = build_tree(abs_root, indent="", is_root=True, lines=lines)
+    
+        tree_text = "\n".join(lines)
+    
+        # Print to console
+        print(tree_text)
+    
+        # Also write to a .txt file
+        out_file = "project_tree.txt"
+        with open(out_file, "w", encoding="utf-8") as f:
+            f.write(tree_text)
+    
+        print(f"\nTree written to {out_file}")
+    
+    
+    if __name__ == "__main__":
+        main()
