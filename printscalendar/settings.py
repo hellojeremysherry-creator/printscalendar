@@ -8,7 +8,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # PASSWORD_PROTECT_ENABLED = os.getenv("PASSWORD_PROTECT_ENABLED", "False") == "True"
 # PASSWORD_PROTECT_PASSWORD = os.getenv("PASSWORD_PROTECT_PASSWORD", "")
 
-PASSWORD_PROTECT_ENABLED = True
+PASSWORD_PROTECT_ENABLED = False
 PASSWORD_PROTECT_PASSWORD = "i'm not giving you the password"
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-later')
